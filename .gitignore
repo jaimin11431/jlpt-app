@@ -1,0 +1,12 @@
+# Scratch / dev scripts
+*.py
+
+# PDFs (large, not needed for the web app)
+*.pdf
+
+# Test files
+test_api.js
+
+# OS junk
+.DS_Store
+Thumbs.db

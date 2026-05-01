@@ -1,0 +1,3273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japanese Reading Practice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script src="grammar.js"></script>
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+    <!-- Tesseract OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #ffffff;
+            color: #374151;
+            line-height: 1.6;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 32px;
+            text-align: center;
+            color: #111827;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 24px;
+            margin-bottom: 16px;
+            color: #1F2937;
+            font-weight: 700;
+        }
+
+        /* ============================================
+           SETUP PANEL STYLES
+           ============================================ */
+        #setupPanel {
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            margin-bottom: 24px;
+        }
+
+        /* ============================================
+           LOGIN PAGE STYLES
+           ============================================ */
+        #login-page {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #F9FAFB;
+        }
+
+        #login-page h1 {
+            font-size: 48px;
+            color: #4F46E5;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        #login-page .subtitle {
+            font-size: 18px;
+            color: #6B7280;
+            margin-bottom: 4px;
+        }
+
+        #login-page .tagline {
+            font-size: 14px;
+            color: #9CA3AF;
+            margin-bottom: 32px;
+        }
+
+        #login-page .note {
+            font-size: 12px;
+            color: #9CA3AF;
+            margin-top: 16px;
+        }
+
+        /* ============================================
+           TAB NAVIGATION STYLES
+           ============================================ */
+        .tab-nav {
+            display: flex;
+            gap: 24px;
+            border-bottom: 1px solid #E5E7EB;
+            margin-bottom: 24px;
+            padding: 0 20px;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 4px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #6B7280;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #4F46E5;
+            border-bottom-color: #4F46E5;
+        }
+
+        /* ============================================
+           STATISTICS STYLES
+           ============================================ */
+        #statistics-tab {
+            display: none;
+        }
+
+        .stat-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: #fff;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-card-title {
+            font-size: 14px;
+            color: #6B7280;
+            margin-bottom: 8px;
+        }
+
+        .stat-card-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .stat-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 24px;
+        }
+
+        .stat-table th,
+        .stat-table td {
+            padding: 10px;
+            border-bottom: 1px solid #E5E7EB;
+            text-align: left;
+        }
+
+        .stat-table th {
+            background: #F9FAFB;
+            color: #4B5563;
+        }
+
+        .progress-bar-bg {
+            background: #E5E7EB;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        /* ============================================
+           GROUP TAB STYLES
+           ============================================ */
+        #group-tab {
+            display: none;
+        }
+
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .group-pills {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 4px;
+        }
+
+        .group-pill {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #F3F4F6;
+            color: #4B5563;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .group-pill.active {
+            background: #EEF2FF;
+            color: #4F46E5;
+            border-color: #4F46E5;
+        }
+
+        .member-card {
+            background: #fff;
+            border: 1px solid #E5E7EB;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .heatmap-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            margin-top: 16px;
+        }
+
+        .heatmap-cell {
+            aspect-ratio: 1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+        }
+
+        /* ============================================
+           SUBMIT TAB STYLES
+           ============================================ */
+        #submit-tab {
+            display: none;
+        }
+
+        .submit-card {
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #E5E7EB;
+            margin-bottom: 16px;
+            background: #fff;
+        }
+
+        .daily-code-display {
+            font-family: monospace;
+            font-size: 48px;
+            letter-spacing: 12px;
+            color: #4F46E5;
+            font-weight: 700;
+            text-align: center;
+            margin: 16px 0;
+            background: #EEF2FF;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .drop-zone {
+            border: 2px dashed #D1D5DB;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #F9FAFB;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: #4F46E5;
+            background-color: #EEF2FF;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        textarea,
+        select,
+        input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            font-family: 'Noto Sans JP', sans-serif;
+            font-size: 14px;
+            border: 1px solid #D1D5DB;
+            border-radius: 6px;
+            background-color: #F9FAFB;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-size: 16px;
+        }
+
+        textarea:focus,
+        select:focus,
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4F46E5;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: 'Noto Sans JP', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background-color: #4F46E5;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            background-color: #4338CA;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        .btn-primary:disabled {
+            background-color: #D1D5DB;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: #6B7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #4B5563;
+        }
+
+        .btn-tertiary {
+            background-color: #F3F4F6;
+            color: #374151;
+            border: 1px solid #D1D5DB;
+        }
+
+        .btn-tertiary:hover {
+            background-color: #E5E7EB;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid #D1D5DB;
+            border-top: 3px solid #4F46E5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            display: inline-block;
+            margin-left: 12px;
+            color: #6B7280;
+            font-size: 14px;
+        }
+
+        .error-message {
+            display: none;
+            background-color: #FEE2E2;
+            border: 1px solid #FECACA;
+            color: #B91C1C;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            display: none;
+            background-color: #DCFCE7;
+            border: 1px solid #BBF7D0;
+            color: #15803D;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .warning-message {
+            display: none;
+            background-color: #FEF3C7;
+            border: 1px solid #FDE047;
+            color: #92400E;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .warning-message.show {
+            display: block;
+        }
+
+        /* ============================================
+           MODE SELECTOR STYLES
+           ============================================ */
+        #modeSelector {
+            display: none;
+            gap: 12px;
+            margin-bottom: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-button {
+            padding: 10px 20px;
+            background-color: #F3F4F6;
+            color: #374151;
+            border: 1px solid #D1D5DB;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: 'Noto Sans JP', sans-serif;
+            transition: all 0.2s ease;
+        }
+
+        .mode-button:hover {
+            background-color: #E5E7EB;
+        }
+
+        .mode-button.active {
+            background-color: #4F46E5;
+            color: white;
+            border-color: #4F46E5;
+        }
+
+        /* ============================================
+           ARTICLE DISPLAY STYLES
+           ============================================ */
+        #articlePanel {
+            display: none;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            margin-bottom: 24px;
+        }
+
+        .article-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .article-controls button {
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+
+        #articleContent {
+            margin-bottom: 24px;
+        }
+
+        /* Furigana hover logic */
+        #articleContent rt {
+            display: none;
+        }
+
+        #articleContent.furigana-active ruby:hover rt {
+            display: block;
+        }
+
+        #articleContent.furigana-active ruby {
+            cursor: pointer;
+            border-bottom: 1px dashed #9CA3AF;
+        }
+
+        .sentence {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-left: 3px solid #E5E7EB;
+            padding-left: 16px;
+            line-height: 1.8;
+            transition: background-color 0.3s ease;
+        }
+
+        @keyframes highlightBlink {
+            0% {
+                background-color: transparent;
+            }
+
+            20% {
+                background-color: #FEF08A;
+            }
+
+            /* soft yellow */
+            80% {
+                background-color: #FEF08A;
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .highlight-blink {
+            animation: highlightBlink 2.5s ease-in-out;
+            border-radius: 4px;
+        }
+
+        .sentence-japanese {
+            font-size: 22px;
+            color: #111827;
+            margin-bottom: 8px;
+        }
+
+        .sentence-english {
+            display: none;
+            font-size: 15px;
+            color: #059669;
+            font-style: italic;
+            padding-top: 8px;
+            margin-top: 8px;
+            border-top: 1px solid #E5E7EB;
+        }
+
+        .sentence-hint {
+            display: none;
+            font-size: 12px;
+            color: #9CA3AF;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        /* Easy mode styles */
+        .easy-mode .sentence {
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .easy-mode .sentence:hover {
+            background-color: #F9FAFB;
+        }
+
+        .easy-mode .sentence-hint {
+            font-size: 12px;
+            color: #9CA3AF;
+            margin-top: 4px;
+            font-style: italic;
+            display: block;
+        }
+
+        .easy-mode .sentence-english {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .easy-mode .sentence-english.revealed {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .sentence-counter {
+            font-size: 14px;
+            color: #6B7280;
+            margin-bottom: 16px;
+        }
+
+        /* ============================================
+           REVIEW PANEL STYLES
+           ============================================ */
+        #reviewPanel {
+            display: none;
+            margin-bottom: 24px;
+        }
+
+        .collapsible-section {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .collapsible-header {
+            background-color: #F3F4F6;
+            padding: 16px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 15px;
+            transition: background-color 0.2s ease;
+        }
+
+        .collapsible-header:hover {
+            background-color: #E5E7EB;
+        }
+
+        .collapsible-toggle {
+            font-size: 18px;
+            transition: transform 0.2s ease;
+        }
+
+        .collapsible-toggle.open {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 16px;
+            background-color: #FFFFFF;
+        }
+
+        .collapsible-content.open {
+            display: block;
+        }
+
+        .vocab-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .vocab-table thead {
+            background-color: #F3F4F6;
+            border-bottom: 2px solid #E5E7EB;
+        }
+
+        .vocab-table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .vocab-table td {
+            padding: 12px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 40px;
+            color: white;
+        }
+
+        .badge-n5 {
+            background-color: #10B981;
+        }
+
+        .badge-n4 {
+            background-color: #3B82F6;
+        }
+
+        .badge-n3 {
+            background-color: #F97316;
+        }
+
+        .grammar-card {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .grammar-pattern {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #111827;
+        }
+
+        .grammar-level {
+            display: inline-block;
+            margin-bottom: 12px;
+        }
+
+        .grammar-example {
+            background-color: #F3F4F6;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 8px;
+            border-left: 3px solid #4F46E5;
+            padding-left: 12px;
+        }
+
+        .grammar-explanation {
+            font-size: 13px;
+            color: #6B7280;
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           BOTTOM BAR STYLES
+           ============================================ */
+        #bottomBar {
+            display: none;
+            background-color: #F9FAFB;
+            border-top: 1px solid #E5E7EB;
+            padding: 16px;
+            margin-top: 24px;
+            border-radius: 8px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        #bottomBar button {
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: #FFFFFF;
+            margin: 50px auto;
+            padding: 24px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6B7280;
+            padding: 0;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            color: #374151;
+        }
+
+        .saved-article-item {
+            background-color: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .saved-article-item:hover {
+            background-color: #F3F4F6;
+            border-color: #D1D5DB;
+        }
+
+        .saved-article-topic {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .saved-article-time {
+            font-size: 13px;
+            color: #6B7280;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: #6B7280;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 640px) {
+            .container {
+                padding: 16px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .sentence-japanese {
+                font-size: 20px;
+            }
+
+            button {
+                font-size: 14px;
+                padding: 10px 16px;
+            }
+        }
+
+        /* Modal Styles */
+        .settings-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .settings-modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- ============================================
+         LOGIN PAGE
+         ============================================ -->
+    <div id="login-page">
+        <h1>読む練習</h1>
+        <div class="subtitle">Japanese Reading Practice</div>
+        <div class="tagline">Track your reading speed. Build your streak.</div>
+        <button id="firebase-signin-btn" onclick="signInWithGoogle()"
+            style="display:flex; align-items:center; gap:10px; background:#4F46E5; color:#fff; border:none; border-radius:8px; padding:10px 20px; font-size:15px; font-weight:600; cursor:pointer; box-shadow:0 2px 8px rgba(79,70,229,0.3); margin-top:16px; transition:opacity 0.2s;"
+            onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+            <svg style="width:20px;height:20px;flex-shrink:0;" viewBox="0 0 24 24">
+                <path fill="#fff"
+                    d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.761H12.545z" />
+            </svg>
+            Sign in with Google
+        </button>
+        <div class="note">Your data stays in your browser. No server.</div>
+    </div>
+
+    <!-- ============================================
+         MAIN APP
+         ============================================ -->
+    <div id="main-app" style="display: none;">
+        <!-- HEADER -->
+        <header
+            style="position:sticky;top:0;background:#fff;border-bottom:1px solid #E5E7EB;padding:12px 20px;display:flex;justify-content:space-between;align-items:center;z-index:100;">
+            <span style="font-size:22px;font-weight:700;color:#4F46E5;">読む練習</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+                <img id="user-avatar" src="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />
+                <span id="user-name" style="font-size:14px;font-weight:500;"></span>
+                <button onclick="openSettings()"
+                    style="background:none;border:none;cursor:pointer;color:#6B7280;font-size:14px;">
+                    ⚙ Settings
+                </button>
+                <button onclick="logout()"
+                    style="background:none;border:none;cursor:pointer;color:#6B7280;font-size:14px;">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- TABS -->
+        <div class="tab-nav" style="overflow-x:auto; white-space:nowrap;">
+            <button class="tab-btn active" id="tab-practice" onclick="switchTab('practice')">📖 Practice</button>
+            <button class="tab-btn" id="tab-statistics" onclick="switchTab('statistics')">📊 Statistics</button>
+            <button class="tab-btn" id="tab-group" onclick="switchTab('group')">👥 Group</button>
+            <button class="tab-btn" id="tab-submit" onclick="switchTab('submit')">📤 Submit</button>
+        </div>
+
+        <div class="container" id="practice-tab">
+            <!-- Title removed since it's in the header now -->
+
+            <!-- ============================================
+             SECTION 1: SETUP PANEL
+             ============================================ -->
+            <div id="setupPanel">
+
+                <div class="form-group">
+                    <label>Load kanji from Anki export or paste manually</label>
+                    <div id="ankiDropZone"
+                        style="border: 2px dashed #D1D5DB; border-radius: 6px; padding: 20px; text-align: center; background-color: #F9FAFB; cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px;">
+                        <div style="display: flex; gap: 12px; align-items: center; justify-content: center;">
+                            <input type="file" id="ankiFileInput" accept=".json" style="display: none;">
+                            <button class="btn-tertiary" id="selectFileBtn" type="button" style="padding: 10px 16px;">📁
+                                Select Anki JSON File</button>
+                            <span style="color: #9CA3AF;">or drag & drop</span>
+                        </div>
+                    </div>
+                    <div id="ankiLoadStatus" style="font-size: 13px; color: #6B7280; margin-bottom: 12px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="kanjiInput">Or paste your known kanji here</label>
+                    <textarea id="kanjiInput" placeholder="一二三日月火水木金土..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="topicSelect">Topic</label>
+                    <select id="topicSelect">
+                        <option value="Daily Life">Daily Life</option>
+                        <option value="School">School</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Food">Food</option>
+                        <option value="Weather">Weather</option>
+                        <option value="Friendship">Friendship</option>
+                        <option value="Nature">Nature</option>
+                        <option value="Shopping">Shopping</option>
+                        <option value="Work">Work</option>
+                        <option value="Hobbies">Hobbies</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="grammarLevelSelect">JLPT Grammar Level to Practice</label>
+                    <select id="grammarLevelSelect">
+                        <option value="n5">N5 — Beginner (~80 patterns)</option>
+                        <option value="n4" selected>N4 — Elementary (~132 patterns)</option>
+                        <option value="n3">N3 — Intermediate (~182 patterns)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="grammarGroupSelect">Select Grammar Group</label>
+                    <select id="grammarGroupSelect">
+                        <!-- Populated by JS -->
+                    </select>
+                    <div style="font-size:12px; color:#6B7280; margin-top:6px;">Article length auto-adjusts to fit these
+                        ~20
+                        patterns. Select a specific group to avoid API token limits.</div>
+                </div>
+
+                <button class="btn-primary" id="generateBtn">生成する Generate Article</button>
+                <button class="btn-tertiary" id="demoBtn" style="background-color: #F0F0F0; margin-left: 8px;">📋 Load
+                    Demo
+                    Article</button>
+
+                <div class="loading-spinner" id="loadingSpinner">
+                    <div class="spinner"></div>
+                    <span class="loading-text">Generating your article...</span>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+                <div class="warning-message" id="warningMessage"></div>
+            </div>
+
+            <!-- ============================================
+                 STOPWATCH PANEL
+                 ============================================ -->
+            <div id="stopwatch-panel"
+                style="display:none; background:#F9FAFB; border:1px solid #E5E7EB; border-radius:12px; padding:16px; margin-bottom:16px; text-align:center;">
+                <div id="timer-display"
+                    style="font-size:48px; font-weight:700; font-family:monospace; color:#1F2937; letter-spacing:2px;">
+                    00:00.0
+                </div>
+                <div style="display:flex; gap:8px; justify-content:center; margin:12px 0;">
+                    <button id="btn-start" onclick="startTimer()"
+                        style="padding:8px 20px; background:#4F46E5; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px;">▶
+                        Start</button>
+                    <button id="btn-lap" onclick="recordLap()" disabled
+                        style="padding:8px 20px; background:#E5E7EB; color:#6B7280; border:none; border-radius:8px; cursor:pointer; font-size:15px;">⏸
+                        Lap</button>
+                    <button id="btn-stop" onclick="stopAndCalculate()" disabled
+                        style="padding:8px 20px; background:#EF4444; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px;">⏹
+                        Stop & Calculate</button>
+                </div>
+                <div id="lap-list"
+                    style="max-height:120px; overflow-y:auto; text-align:left; font-size:13px; color:#6B7280;"></div>
+                <div id="speed-result"
+                    style="display:none; margin-top:16px; background:#fff; border:1px solid #D1FAE5; border-radius:8px; padding:16px; text-align:left;">
+                </div>
+            </div>
+
+            <!-- ============================================
+                 SECTION 2: MODE SELECTOR
+                 ============================================ -->
+            <div id="modeSelector">
+                <button class="mode-button active" data-mode="hard">HARD</button>
+                <button class="mode-button" data-mode="normal">NORMAL</button>
+                <button class="mode-button" data-mode="easy">EASY</button>
+            </div>
+
+            <!-- ============================================
+             SECTION 3: ARTICLE DISPLAY
+             ============================================ -->
+            <div id="articlePanel">
+                <div class="article-controls" id="articleControls"></div>
+                <div class="sentence-counter" id="sentenceCounter"></div>
+                <div id="articleContent"></div>
+            </div>
+
+            <!-- ============================================
+             SECTION 4: REVIEW PANEL
+             ============================================ -->
+            <div id="reviewPanel">
+                <div class="collapsible-section">
+                    <div class="collapsible-header" data-target="vocabulary">
+                        <span>Vocabulary</span>
+                        <span class="collapsible-toggle">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="vocabulary">
+                        <table class="vocab-table">
+                            <thead>
+                                <tr>
+                                    <th>Kanji</th>
+                                    <th>Reading</th>
+                                    <th>Meaning</th>
+                                    <th>JLPT</th>
+                                    <th>Priority</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vocabBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="collapsible-section">
+                    <div class="collapsible-header" data-target="grammar">
+                        <span>Grammar Patterns Used</span>
+                        <span class="collapsible-toggle">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="grammar"></div>
+                </div>
+            </div>
+
+            <!-- ============================================
+             SECTION 5: BOTTOM BAR
+             ============================================ -->
+            <div id="bottomBar">
+                <button class="btn-secondary" id="saveBtn">Save Article</button>
+                <button class="btn-tertiary" id="savedArticlesBtn">Saved Articles <span
+                        id="savedCount">0</span></button>
+            </div>
+        </div> <!-- End of practice-tab container -->
+
+        <!-- ============================================
+             STATISTICS TAB
+             ============================================ -->
+        <div class="container" id="statistics-tab">
+            <!-- Injected by renderStatistics() -->
+        </div>
+
+        <!-- ============================================
+             GROUP TAB
+             ============================================ -->
+        <div class="container" id="group-tab">
+            <!-- STATE 1: No Group -->
+            <div id="group-state-1" style="display:none;">
+                <h2 style="text-align:center; margin-bottom:24px;">Study with Friends</h2>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div class="submit-card" style="text-align:center;">
+                        <h3>Create Group</h3>
+                        <p style="font-size:13px; color:#6B7280; margin:8px 0 16px;">Start a new accountability group.
+                        </p>
+                        <input type="text" id="create-group-name" placeholder="Group Name" style="margin-bottom:12px;">
+                        <button class="btn-primary" onclick="createGroup()" style="width:100%;">Create ▶</button>
+                    </div>
+                    <div class="submit-card" style="text-align:center;">
+                        <h3>Join Group</h3>
+                        <p style="font-size:13px; color:#6B7280; margin:8px 0 16px;">Have a code? Join an existing
+                            group.</p>
+                        <input type="text" id="join-group-code" placeholder="6-digit code"
+                            style="margin-bottom:12px; text-transform:uppercase;" maxlength="6">
+                        <button class="btn-primary" onclick="joinGroup()" style="width:100%; background:#059669;">Join
+                            ▶</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATE 2: In Group -->
+            <div id="group-state-2" style="display:none;">
+                <div class="group-header">
+                    <h2 id="group-header-name" style="margin:0;">🎌 Group</h2>
+                    <div style="text-align:right;">
+                        <span style="font-size:12px; color:#6B7280;">Code:</span>
+                        <span id="group-header-code"
+                            style="font-family:monospace; font-weight:700; color:#4F46E5;"></span>
+                    </div>
+                </div>
+
+                <div class="group-pills">
+                    <button class="group-pill active" onclick="switchGroupSubTab('today')">📅 Today</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('leaderboard')">🏆 Leaderboard</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('stats')">📊 Stats</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('settings')">⚙ Settings</button>
+                </div>
+
+                <div id="group-sub-today">
+                    <div id="group-today-cards"></div>
+                </div>
+
+                <div id="group-sub-leaderboard" style="display:none;">
+                    <div id="group-leaderboard-content"></div>
+                </div>
+
+                <div id="group-sub-stats" style="display:none;">
+                    <div id="group-stats-content"></div>
+                </div>
+
+                <div id="group-sub-settings" style="display:none;">
+                    <div class="submit-card">
+                        <h3>Group Settings</h3>
+                        <button class="btn-secondary" onclick="leaveGroup()" style="margin-top:16px;">Leave
+                            Group</button>
+                        <button class="btn-primary" id="btn-delete-group" onclick="deleteGroup()"
+                            style="margin-top:16px; background:#EF4444; display:none;">Delete Group</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================
+             SUBMIT TAB
+             ============================================ -->
+        <div class="container" id="submit-tab">
+            <div class="submit-card">
+                <h3 style="text-align:center;">📅 Today's Anti-Cheat Code</h3>
+                <div class="daily-code-display" id="daily-code-display"></div>
+                <p style="font-size:14px; text-align:center; color:#4B5563;">
+                    Write this code on a sticky note or paper. Hold it next to your screen when taking the Anki
+                    screenshot.
+                </p>
+            </div>
+
+            <div id="submit-form-area">
+                <h3 style="margin:24px 0 12px; font-size:16px;">Instructions</h3>
+                <div
+                    style="background:#F9FAFB; padding:16px; border-radius:8px; font-size:14px; margin-bottom:24px; border:1px solid #E5E7EB;">
+                    <ol style="margin-left:20px; color:#374151;">
+                        <li style="margin-bottom:4px;">Open Anki on your device</li>
+                        <li style="margin-bottom:4px;">Go to Stats (bar chart icon)</li>
+                        <li style="margin-bottom:4px;">Select the "Today" tab</li>
+                        <li style="margin-bottom:4px;">Hold your paper with today's code next to the screen</li>
+                        <li style="margin-bottom:4px;">Take a clear screenshot showing BOTH</li>
+                    </ol>
+                </div>
+
+                <input type="file" id="anki-file-input" accept="image/*" style="display:none"
+                    onchange="handleAnkiImageSelect(event)">
+                <div class="drop-zone" id="anki-drop-zone" onclick="document.getElementById('anki-file-input').click()">
+                    <div style="font-size:24px; margin-bottom:8px;">📸</div>
+                    <div style="font-weight:600; color:#374151;">Drop screenshot here or click to browse</div>
+                    <div style="font-size:12px; color:#6B7280; margin-top:8px;">Accepted: JPG, PNG</div>
+                </div>
+
+                <div id="ocr-preview-area" style="display:none; margin-top:16px; text-align:center;">
+                    <img id="ocr-image-preview"
+                        style="max-width:100%; max-height:300px; border-radius:8px; border:1px solid #E5E7EB; margin-bottom:16px;">
+                    <div id="ocr-status" style="font-weight:600; color:#4F46E5; margin-bottom:16px; display:none;">
+                    </div>
+                    <button class="btn-primary" id="btn-analyse-screenshot" onclick="startOcrAnalysis()"
+                        style="width:100%;">🔍 Analyse Screenshot</button>
+                </div>
+            </div>
+
+            <div id="submit-result-area" style="display:none; margin-top:24px;"></div>
+        </div>
+
+    </div> <!-- End of main-app -->
+
+    <!-- ============================================
+         SETTINGS MODAL
+         ============================================ -->
+    <div id="settingsModal" class="settings-modal">
+        <div class="settings-modal-content">
+            <h2 style="margin-top:0;">Settings</h2>
+            <div class="form-group">
+                <label>Default Mode</label>
+                <div style="display:flex; gap:16px; margin-top:8px;">
+                    <label><input type="radio" name="set-mode" value="hard"> Hard</label>
+                    <label><input type="radio" name="set-mode" value="normal"> Normal</label>
+                    <label><input type="radio" name="set-mode" value="easy"> Easy</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Default Topic</label>
+                <select id="set-topic">
+                    <option value="Daily Life">Daily Life</option>
+                    <option value="School">School</option>
+                    <option value="Travel">Travel</option>
+                    <option value="Food">Food</option>
+                    <option value="Weather">Weather</option>
+                    <option value="Friendship">Friendship</option>
+                    <option value="Nature">Nature</option>
+                    <option value="Shopping">Shopping</option>
+                    <option value="Work">Work</option>
+                    <option value="Hobbies">Hobbies</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Daily Article Goal</label>
+                <select id="set-goal">
+                    <option value="1">1 article</option>
+                    <option value="2">2 articles</option>
+                    <option value="3">3 articles</option>
+                    <option value="5">5 articles</option>
+                </select>
+            </div>
+            <button onclick="clearStats()"
+                style="width:100%; padding:10px; background:#EF4444; color:white; border:none; border-radius:6px; cursor:pointer; margin-bottom:12px;">
+                Clear All Statistics
+            </button>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button onclick="closeSettings()" class="btn-tertiary">Cancel</button>
+                <button onclick="saveSettings()" class="btn-primary" style="width:auto;">Save & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================
+         SAVED ARTICLES MODAL
+         ============================================ -->
+    <div id="savedModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Saved Articles</span>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div id="savedArticlesList"></div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GLOBAL STATE
+        let currentMode = 'hard';
+        let currentArticleData = null;
+        let showingFurigana = false;
+        let showingRomaji = false;
+        let easyTapCount = 0;
+
+        // Stopwatch Variables
+        let timerInterval = null;
+        let timerStartTime = null;
+        let timerElapsedMs = 0;
+        let timerRunning = false;
+        let lapCount = 0;
+        let lapStartMs = 0;
+
+        // Firebase Global Variables
+        let currentUser = null;
+
+        // ============================================
+        // FIREBASE INIT (must happen FIRST)
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDGfqomtrTfR6abMfftv6khMF0DJC_JN3E",
+            authDomain: "jlpt-tracker-a8a99.firebaseapp.com",
+            projectId: "jlpt-tracker-a8a99",
+            storageBucket: "jlpt-tracker-a8a99.firebasestorage.app",
+            messagingSenderId: "164739816133",
+            appId: "1:164739816133:web:f93c454c0fd26002deaeac",
+            measurementId: "G-CLR2WFX7ET"
+        };
+        firebase.initializeApp(firebaseConfig);
+
+        // Now safe to get service references
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+
+        firebase.auth().onAuthStateChanged((user) => {
+            if (user) {
+                currentUser = user;
+                showMainApp(user);
+            } else {
+                currentUser = null;
+                // Handle the result after redirect-based login
+                firebase.auth().getRedirectResult().then(result => {
+                    if (result.user) {
+                        currentUser = result.user;
+                        showMainApp(result.user);
+                    } else {
+                        showLoginPage();
+                    }
+                }).catch(err => {
+                    console.error('Redirect result error:', err);
+                    showLoginPage();
+                });
+            }
+        });
+
+        function signInWithGoogle() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            firebase.auth().signInWithRedirect(provider);
+        }
+
+        function showLoginPage() {
+            document.getElementById('login-page').style.display = 'flex';
+            document.getElementById('main-app').style.display = 'none';
+            document.getElementById('stopwatch-panel').style.display = 'none';
+        }
+
+        function showMainApp(user) {
+            document.getElementById('login-page').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            document.getElementById('user-name').textContent = user.displayName ? user.displayName.split(' ')[0] : 'User';
+            document.getElementById('user-avatar').src = user.photoURL || '';
+
+            loadSettings();
+        }
+
+        function logout() {
+            firebase.auth().signOut();
+        }
+
+        // API keys: randomly select from a pool of built-in keys to avoid rate limits
+        function getApiKey() {
+            const savedKey = localStorage.getItem('jpreader_apikey');
+            if (savedKey) return savedKey;
+
+            const fallbackKeys = [
+                'AIzaSyBJNtrk0aTU8Ib_tiAfVafcPT-ENDY7hi4',
+                'AIzaSyC9Ur_Y926pwN1U-OxNGnCQ2GhoHFWMs8U',
+                'AIzaSyB39nmiWO0UgDG8rZhBihQE36eWNhKXFQ8'
+            ];
+            // Select a random key from the pool
+            return fallbackKeys[Math.floor(Math.random() * fallbackKeys.length)];
+        }
+        // Use gemini-2.5-flash — confirmed available from the API models list
+        function getGeminiUrl() {
+            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${getApiKey()}`;
+        }
+
+        // ============================================
+        // DOM ELEMENTS
+        // ============================================
+        const kanjiInput = document.getElementById('kanjiInput');
+        const topicSelect = document.getElementById('topicSelect');
+        const grammarLevelSelect = document.getElementById('grammarLevelSelect');
+        const grammarGroupSelect = document.getElementById('grammarGroupSelect');
+        const generateBtn = document.getElementById('generateBtn');
+        const demoBtn = document.getElementById('demoBtn');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const warningMessage = document.getElementById('warningMessage');
+
+        const ankiFileInput = document.getElementById('ankiFileInput');
+        const selectFileBtn = document.getElementById('selectFileBtn');
+        const ankiDropZone = document.getElementById('ankiDropZone');
+        const ankiLoadStatus = document.getElementById('ankiLoadStatus');
+
+        const modeSelector = document.getElementById('modeSelector');
+        const modeButtons = document.querySelectorAll('.mode-button');
+
+        const articlePanel = document.getElementById('articlePanel');
+        const articleControls = document.getElementById('articleControls');
+        const articleContent = document.getElementById('articleContent');
+        const sentenceCounter = document.getElementById('sentenceCounter');
+
+        const reviewPanel = document.getElementById('reviewPanel');
+        const vocabBody = document.getElementById('vocabBody');
+        const grammarBody = document.getElementById('grammar');
+        const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
+
+        const bottomBar = document.getElementById('bottomBar');
+        const saveBtn = document.getElementById('saveBtn');
+        const savedArticlesBtn = document.getElementById('savedArticlesBtn');
+        const savedCount = document.getElementById('savedCount');
+        const savedModal = document.getElementById('savedModal');
+        const modalClose = document.getElementById('modalClose');
+        const savedArticlesList = document.getElementById('savedArticlesList');
+
+        // ============================================
+        // UTILITY: Clean JSON response from Gemini
+        // ============================================
+        function cleanJSON(text) {
+            // Strip markdown code fences in various formats
+            text = text.replace(/^```(?:json)?\s*/gim, '').replace(/^```\s*$/gim, '');
+            // Find the outermost JSON object
+            const start = text.indexOf('{');
+            const end = text.lastIndexOf('}');
+            if (start === -1 || end === -1) throw new Error('No JSON object found in response');
+            return text.slice(start, end + 1);
+        }
+
+        // ============================================
+        // UTILITY: Extract kanji from Anki JSON
+        // ============================================
+        function extractKanjiFromAnki(jsonData) {
+            let learning = [];
+            let young = [];
+            let mature = [];
+            let other = [];
+
+            // Handle array of kanji objects
+            if (Array.isArray(jsonData)) {
+                jsonData.forEach(item => {
+                    if (item.characters) {
+                        if (item.hasOwnProperty('anki_mature') || item.hasOwnProperty('anki_max_interval')) {
+                            if (item.anki_mature) {
+                                mature.push(item.characters);
+                            } else if (item.anki_max_interval > 0) {
+                                young.push(item.characters);
+                            } else {
+                                learning.push(item.characters);
+                            }
+                        } else {
+                            other.push(item.characters);
+                        }
+                    }
+                });
+            }
+            // Handle object structure
+            else if (typeof jsonData === 'object' && jsonData !== null) {
+                // Try to find notes array
+                if (Array.isArray(jsonData.notes)) {
+                    jsonData.notes.forEach(note => {
+                        if (note.fields && note.fields[0]) {
+                            const field = note.fields[0];
+                            const matches = field.match(/[\u4E00-\u9FFF]/g);
+                            if (matches) other.push(...matches);
+                        }
+                    });
+                }
+                // Try to find cards array
+                else if (Array.isArray(jsonData.cards)) {
+                    jsonData.cards.forEach(card => {
+                        if (card.characters) other.push(card.characters);
+                    });
+                }
+            }
+
+            // If we have Anki prioritization data, format it nicely
+            if (learning.length > 0 || young.length > 0 || mature.length > 0) {
+                let formattedStr = '';
+                if (learning.length > 0) formattedStr += `[High Priority - Learning]\n${[...new Set(learning)].join('')}\n\n`;
+                if (young.length > 0) formattedStr += `[Medium Priority - Young]\n${[...new Set(young)].join('')}\n\n`;
+                if (mature.length > 0) formattedStr += `[Low Priority - Mature]\n${[...new Set(mature)].join('')}\n\n`;
+                if (other.length > 0) formattedStr += `[Other Kanji]\n${[...new Set(other)].join('')}`;
+                return formattedStr.trim();
+            }
+
+            // Otherwise, fallback to flat unique string
+            return [...new Set(other)].join('');
+        }
+
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+
+        generateBtn.addEventListener('click', handleGenerate);
+        demoBtn.addEventListener('click', handleLoadDemo);
+        selectFileBtn.addEventListener('click', () => ankiFileInput.click());
+        ankiFileInput.addEventListener('change', handleAnkiFileUpload);
+
+        // Drag and drop
+        ankiDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            ankiDropZone.style.backgroundColor = '#E5E7EB';
+            ankiDropZone.style.borderColor = '#4F46E5';
+        });
+        ankiDropZone.addEventListener('dragleave', () => {
+            ankiDropZone.style.backgroundColor = '#F9FAFB';
+            ankiDropZone.style.borderColor = '#D1D5DB';
+        });
+        ankiDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            ankiDropZone.style.backgroundColor = '#F9FAFB';
+            ankiDropZone.style.borderColor = '#D1D5DB';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                ankiFileInput.files = files;
+                handleAnkiFileUpload({ target: { files } });
+            }
+        });
+
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', handleModeChange);
+        });
+        collapsibleHeaders.forEach(header => {
+            header.addEventListener('click', handleCollapsibleToggle);
+        });
+        saveBtn.addEventListener('click', handleSaveArticle);
+        savedArticlesBtn.addEventListener('click', handleShowSavedArticles);
+        modalClose.addEventListener('click', () => {
+            savedModal.style.display = 'none';
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            if (e.target === savedModal) {
+                savedModal.style.display = 'none';
+            }
+        });
+
+        // Initialize Dynamic Grammar Groups Dropdown
+        function updateGrammarGroups() {
+            const level = grammarLevelSelect.value;
+            const groups = JLPT_GRAMMAR[level] || [];
+
+            grammarGroupSelect.innerHTML = '';
+            let cumulativePatterns = 0;
+
+            groups.forEach((group, index) => {
+                const start = cumulativePatterns + 1;
+                const end = cumulativePatterns + group.length;
+                cumulativePatterns += group.length;
+
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `Group ${index + 1} (Patterns ${start} - ${end})`;
+                grammarGroupSelect.appendChild(option);
+            });
+        }
+
+        grammarLevelSelect.addEventListener('change', updateGrammarGroups);
+        updateGrammarGroups(); // Call once on load
+
+        // ============================================
+        // HANDLERS
+        // ============================================
+        async function handleGenerate() {
+            clearMessages();
+            const kanji = kanjiInput.value.trim();
+            if (!kanji) { showError('Please paste your known kanji first'); return; }
+            const topic = topicSelect.value;
+            const level = grammarLevelSelect.value;
+            const groupIndex = parseInt(grammarGroupSelect.value, 10);
+            await generateArticle(kanji, topic, level, groupIndex);
+        }
+
+        function handleAnkiFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const json = JSON.parse(event.target.result);
+                    const kanji = extractKanjiFromAnki(json);
+                    if (kanji.length > 0) {
+                        kanjiInput.value = kanji;
+                        ankiLoadStatus.innerHTML = `✓ Loaded <strong>${kanji.length}</strong> unique kanji from Anki`;
+                        ankiLoadStatus.style.color = '#059669';
+                        clearMessages();
+                        showSuccess(`Loaded ${kanji.length} kanji from your Anki deck!`);
+                    } else {
+                        showError('No kanji found in the JSON file. Check the file format.');
+                        ankiLoadStatus.innerHTML = '✗ No kanji found';
+                        ankiLoadStatus.style.color = '#B91C1C';
+                    }
+                } catch (error) {
+                    showError('Failed to parse JSON file. Make sure it\'s a valid Anki export.');
+                    ankiLoadStatus.innerHTML = '✗ Invalid JSON file';
+                    ankiLoadStatus.style.color = '#B91C1C';
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function handleLoadDemo() {
+            currentArticleData = {
+                "article": "学校の友達に昨日の会話を聞きました。「昨日の天気はとても良かったです。」と友達が言いました。「本当ですね。今日も良い天気になるでしょう。」",
+                "sentences": [
+                    {
+                        "japanese": "学校の友達に昨日の会話を聞きました。",
+                        "romaji": "Gakkō no tomodachi ni kinō no kaiwa wo kikimashita.",
+                        "furigana_html": "学校(がっこう)の友達(ともだち)に昨日(きのう)の会話(かいわ)を聞(き)きました。",
+                        "english": "I asked my school friend about yesterday's conversation."
+                    },
+                    {
+                        "japanese": "「昨日の天気はとても良かったです。」と友達が言いました。",
+                        "romaji": "\"Kinō no tenki wa totemo yokatta desu.\" to tomodachi ga iimashita.",
+                        "furigana_html": "「昨日(きのう)の天気(てんき)はとても良(よ)かったです。」と友達(ともだち)が言(い)いました。",
+                        "english": "My friend said, \"Yesterday's weather was very nice.\""
+                    },
+                    {
+                        "japanese": "「本当ですね。今日も良い天気になるでしょう。」",
+                        "romaji": "\"Hontō desu ne. Kyō mo yoi tenki ni naru deshou.\"",
+                        "furigana_html": "「本当(ほんとう)ですね。今日(きょう)も良(よ)い天気(てんき)になるでしょう。」",
+                        "english": "\"That's true. Today should also have nice weather.\""
+                    }
+                ],
+                "vocabulary": [
+                    {
+                        "kanji": "学校",
+                        "reading": "がっこう",
+                        "meaning": "school",
+                        "jlpt": "n5"
+                    },
+                    {
+                        "kanji": "友達",
+                        "reading": "ともだち",
+                        "meaning": "friend",
+                        "jlpt": "n5"
+                    },
+                    {
+                        "kanji": "昨日",
+                        "reading": "きのう",
+                        "meaning": "yesterday",
+                        "jlpt": "n5"
+                    },
+                    {
+                        "kanji": "天気",
+                        "reading": "てんき",
+                        "meaning": "weather",
+                        "jlpt": "n5"
+                    },
+                    {
+                        "kanji": "良い",
+                        "reading": "よい",
+                        "meaning": "good",
+                        "jlpt": "n5"
+                    },
+                    {
+                        "kanji": "今日",
+                        "reading": "きょう",
+                        "meaning": "today",
+                        "jlpt": "n5"
+                    }
+                ],
+                "patterns_used": [
+                    {
+                        "pattern": "～と～が言いました",
+                        "level": "n5",
+                        "example": "友達が「天気がいいですね」と言いました。",
+                        "explanation": "Used to report what someone said"
+                    },
+                    {
+                        "pattern": "～でしょう",
+                        "level": "n4",
+                        "example": "明日も良い天気になるでしょう。",
+                        "explanation": "Expresses probability or prediction"
+                    }
+                ]
+            };
+
+            clearMessages();
+            modeSelector.style.display = 'flex';
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            modeButtons[1].classList.add('active'); // NORMAL mode
+            currentMode = 'normal';
+            showingFurigana = false;
+            showingRomaji = false;
+
+            articlePanel.style.display = 'block';
+            reviewPanel.style.display = 'block';
+            bottomBar.style.display = 'flex';
+
+            renderArticle();
+            showSuccess('✓ Demo article loaded! This shows how the app works.');
+        }
+
+        function handleModeChange(e) {
+            modeButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentMode = e.target.dataset.mode;
+            renderArticle();
+        }
+
+        function handleCollapsibleToggle(e) {
+            const header = e.currentTarget;
+            const target = header.dataset.target;
+            const content = document.getElementById(target);
+            const toggle = header.querySelector('.collapsible-toggle');
+
+            content.classList.toggle('open');
+            toggle.classList.toggle('open');
+        }
+
+        function handleRegenerate() {
+            clearMessages();
+            generateBtn.click();
+        }
+
+        function handleSaveArticle() {
+            if (!currentArticleData) return;
+
+            const key = 'jpreader_' + Date.now();
+            const value = JSON.stringify({
+                timestamp: new Date().toISOString(),
+                topic: topicSelect.value,
+                grammarPattern: grammarLevelSelect.value, // Using level instead of removed grammarInput
+                articleData: currentArticleData
+            });
+
+            localStorage.setItem(key, value);
+            updateSavedCount();
+            showSuccess('Article saved successfully!');
+        }
+
+        function handleShowSavedArticles() {
+            const saved = getSavedArticles();
+            savedArticlesList.innerHTML = '';
+
+            if (saved.length === 0) {
+                savedArticlesList.innerHTML = '<div class="empty-state">No saved articles yet</div>';
+            } else {
+                saved.forEach((item, index) => {
+                    const date = new Date(item.timestamp);
+                    const formatted = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+                    const div = document.createElement('div');
+                    div.className = 'saved-article-item';
+                    div.style.display = 'flex';
+                    div.style.justifyContent = 'space-between';
+                    div.style.alignItems = 'center';
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.style.flex = '1';
+                    contentDiv.style.cursor = 'pointer';
+                    contentDiv.innerHTML = `
+                        <div class="saved-article-topic">${item.topic}</div>
+                        <div class="saved-article-time">${formatted}</div>
+                    `;
+                    contentDiv.addEventListener('click', () => {
+                        currentArticleData = item.articleData;
+                        topicSelect.value = item.topic;
+                        grammarInput.value = item.grammarPattern || '';
+                        renderArticle();
+                        modeSelector.style.display = 'flex';
+                        modeButtons.forEach(btn => btn.classList.remove('active'));
+                        modeButtons[0].classList.add('active');
+                        currentMode = 'hard';
+                        showingFurigana = false;
+                        showingRomaji = false;
+                        articlePanel.style.display = 'block';
+                        reviewPanel.style.display = 'block';
+                        bottomBar.style.display = 'flex';
+                        savedModal.style.display = 'none';
+                    });
+
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn-tertiary';
+                    deleteBtn.textContent = '🗑️';
+                    deleteBtn.style.padding = '6px 10px';
+                    deleteBtn.style.marginLeft = '12px';
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (confirm('Delete this saved article?')) {
+                            localStorage.removeItem(item.key);
+                            updateSavedCount();
+                            handleShowSavedArticles();
+                        }
+                    });
+
+                    div.appendChild(contentDiv);
+                    div.appendChild(deleteBtn);
+                    savedArticlesList.appendChild(div);
+                });
+            }
+
+            savedModal.style.display = 'block';
+        }
+
+        // ============================================
+        // GENERATE ARTICLE FROM GEMINI (with retry)
+        // ============================================
+
+        // Sleep helper
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // Success Sound
+        function playSuccessSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+                // Play a pleasant double-chime
+                function playTone(freq, startTime, duration) {
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime + startTime);
+
+                    gainNode.gain.setValueAtTime(0, audioCtx.currentTime + startTime);
+                    gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + startTime + 0.05);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + startTime + duration);
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+
+                    oscillator.start(audioCtx.currentTime + startTime);
+                    oscillator.stop(audioCtx.currentTime + startTime + duration);
+                }
+
+                playTone(523.25, 0, 0.3); // C5
+                playTone(659.25, 0.15, 0.5); // E5
+            } catch (e) {
+                console.error("Audio playback failed", e);
+            }
+        }
+
+        // Show countdown in loading text
+        async function showCountdown(seconds, reason) {
+            const loadingText = document.querySelector('.loading-text');
+            for (let s = seconds; s > 0; s--) {
+                loadingText.textContent = `${reason} — retrying in ${s}s…`;
+                await sleep(1000);
+            }
+            loadingText.textContent = 'Generating your article...';
+        }
+
+        async function callGeminiWithRetry(body, maxRetries = 3) {
+            const delays = [5000, 15000, 30000]; // 5s, 15s, 30s
+
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                const response = await fetch(getGeminiUrl(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (response.ok) return response;
+
+                const isRetryable = (response.status === 429 || response.status >= 500) && attempt < maxRetries;
+
+                if (isRetryable) {
+                    const waitSecs = Math.ceil(delays[attempt] / 1000);
+                    const reason = response.status === 429
+                        ? `Rate limited (attempt ${attempt + 1}/${maxRetries})`
+                        : `Server error ${response.status} (attempt ${attempt + 1}/${maxRetries})`;
+                    await showCountdown(waitSecs, reason);
+                    continue;
+                }
+
+                // Non-retryable or exhausted retries — throw with a clear message
+                let errorMsg = `API error ${response.status}.`;
+                if (response.status === 429) errorMsg = 'Rate limit exceeded after all retries. Please wait a few minutes or add your own API key.';
+                else if (response.status === 401) errorMsg = 'API key invalid or expired.';
+                else if (response.status === 403) errorMsg = 'Access denied. The API key may not have permission for this model.';
+                else if (response.status === 404) errorMsg = 'Model not found. Please check the model name.';
+                else if (response.status >= 500) errorMsg = `Gemini server error (${response.status}). Retried ${maxRetries} times — please try again in a moment.`;
+                throw new Error(errorMsg);
+            }
+        }
+
+        async function generateArticle(kanji, topic, level, groupIndex) {
+            // Check timer
+            if (timerRunning) {
+                if (!confirm("Timer is running. Generate new article and reset timer?")) {
+                    return;
+                }
+            }
+
+            resetTimer();
+            easyTapCount = 0; // reset tap count
+
+            showLoading();
+
+            const selectedGrammarChunk = JLPT_GRAMMAR[level][groupIndex];
+
+            const prompt = `You are a Japanese reading practice generator for a JLPT student.
+
+STRICT RULES:
+1. ONLY use kanji from the list below. If kanji are grouped by priority, you MUST try your hardest to use the "High Priority" and "Medium Priority" kanji as frequently as possible to build the core of the story. Use the "Low Priority" kanji only when necessary to make the sentence natural:
+   ${kanji}
+2. All other words MUST be written in hiragana or katakana only
+3. You MAY use natural filler words like やっぱり、なんか、ちょっと、でも in kana
+4. Overall difficulty must NOT exceed JLPT ${level.toUpperCase()} reading comprehension level
+5. GRAMMAR REQUIREMENT: You MUST exclusively use grammar patterns from the provided JLPT ${level.toUpperCase()} list below. Try to include ALL the patterns from this list in a single article (up to 15). Do NOT use patterns from higher levels. Keep the article concise (around 600 Japanese characters maximum) to prevent output truncation.
+   Allowed ${level.toUpperCase()} Patterns:
+   ${JSON.stringify(selectedGrammarChunk)}
+6. Topic: ${topic}
+7. Use appropriate JLPT vocabulary for the level.
+8. Every sentence must feel like natural conversational Japanese.
+
+Return ONLY a valid JSON object. No markdown. No backticks. No explanation. 
+Just the raw JSON starting with { and ending with }
+
+JSON structure to return:
+{
+  "article": "the complete article as one string",
+  "sentences": [
+    {
+      "id": "s1",
+      "japanese": "sentence in Japanese with kanji",
+      "romaji": "full romaji reading of this sentence",
+      "furigana_html": "CRITICAL: MUST use FULL ruby tags for EVERY kanji like <ruby>今日<rt>きょう</rt></ruby>は",
+      "english": "natural English translation of this sentence"
+    }
+  ],
+  "vocabulary": [
+    {
+      "kanji": "学校",
+      "reading": "がっこう",
+      "meaning": "school",
+      "jlpt": "n5",
+      "priority": "Learning"
+    }
+  ],
+  "patterns_used": [
+    {
+      "pattern": "〜たことがある",
+      "level": "${level.toUpperCase()}",
+      "sentence_id": "s1",
+      "example": "富士山に登ったことがある。",
+      "explanation": "Expresses past experience — have done something before"
+    }
+  ]
+}`;
+
+            try {
+                const response = await callGeminiWithRetry({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 8192,
+                        // Disable thinking mode — must be inside generationConfig
+                        thinkingConfig: { thinkingBudget: 0 }
+                    }
+                });
+
+                const data = await response.json();
+
+                // Scan all parts and pick the first non-thought text
+                // (gemini-2.5-flash can return a thought part before the real content)
+                const parts = data.candidates[0].content.parts;
+                const rawText = (parts.find(p => !p.thought && p.text) || parts[0]).text;
+
+                let cleanedJSON, parsedData;
+                try {
+                    cleanedJSON = cleanJSON(rawText);
+                    parsedData = JSON.parse(cleanedJSON);
+                } catch (parseErr) {
+                    // Log the raw response for debugging
+                    console.error('JSON parse failed. Raw API response:', rawText);
+                    console.error('Parse error:', parseErr.message);
+                    throw new Error('JSON');
+                }
+                currentArticleData = parsedData;
+
+                // Validate kanji
+                validateKanji(kanji);
+
+                // Show article
+                hideLoading();
+                modeSelector.style.display = 'flex';
+                modeButtons.forEach(btn => btn.classList.remove('active'));
+                modeButtons[0].classList.add('active'); // Set to HARD default
+                currentMode = 'hard';
+                showingFurigana = false;
+                showingRomaji = false;
+
+                articlePanel.style.display = 'block';
+                reviewPanel.style.display = 'block';
+                bottomBar.style.display = 'flex';
+
+                renderArticle();
+                updateSavedCount();
+
+                // Play success sound when everything is visible
+                playSuccessSound();
+
+                // Show stopwatch panel
+                document.getElementById('stopwatch-panel').style.display = 'block';
+
+            } catch (error) {
+                hideLoading();
+                if (error.message.includes('JSON')) {
+                    showError('Response parsing failed. The API returned invalid data. Try again.');
+                } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    showError('Network error. Check your internet connection.');
+                } else {
+                    showError(error.message);
+                }
+            }
+        }
+
+        // ============================================
+        // VALIDATE KANJI
+        // ============================================
+        function validateKanji(userKanji) {
+            clearMessages();
+            const userKanjiSet = new Set(userKanji);
+            const kanjiInArticle = extractKanji(currentArticleData.article);
+            const violations = [];
+
+            kanjiInArticle.forEach(k => {
+                if (!userKanjiSet.has(k)) {
+                    violations.push(k);
+                }
+            });
+
+            if (violations.length > 0) {
+                showWarning(`⚠️ Article contains ${violations.length} kanji outside your list: ${violations.join('')}. Consider regenerating.`);
+            } else {
+                showSuccess('✓ All kanji in this article are from your known list');
+            }
+        }
+
+        function extractKanji(text) {
+            const kanjiRegex = /[\u4E00-\u9FFF]/g;
+            const matches = text.match(kanjiRegex) || [];
+            return [...new Set(matches)];
+        }
+
+        // ============================================
+        // RENDER ARTICLE
+        // ============================================
+        function renderArticle() {
+            if (!currentArticleData) return;
+
+            articleContent.innerHTML = '';
+            articleControls.innerHTML = '';
+            articleContent.classList.remove('easy-mode');
+            sentenceCounter.style.display = 'none';
+
+            if (currentMode === 'hard') {
+                renderHardMode();
+            } else if (currentMode === 'normal') {
+                renderNormalMode();
+            } else if (currentMode === 'easy') {
+                renderEasyMode();
+            }
+
+            populateReview();
+        }
+
+        function renderHardMode() {
+            currentArticleData.sentences.forEach(sentence => {
+                const div = document.createElement('div');
+                div.className = 'sentence';
+                if (sentence.id) div.id = sentence.id;
+                div.innerHTML = `<div class="sentence-japanese">${sentence.japanese}</div>`;
+                articleContent.appendChild(div);
+            });
+        }
+
+        function renderNormalMode() {
+            const furiganaBtn = document.createElement('button');
+            furiganaBtn.className = 'btn-secondary';
+            furiganaBtn.textContent = 'Enable Hover Furigana';
+            furiganaBtn.addEventListener('click', () => {
+                showingFurigana = !showingFurigana;
+                furiganaBtn.textContent = showingFurigana ? 'Disable Hover Furigana' : 'Enable Hover Furigana';
+                if (showingFurigana) {
+                    articleContent.classList.add('furigana-active');
+                } else {
+                    articleContent.classList.remove('furigana-active');
+                }
+            });
+
+            const romajiBtn = document.createElement('button');
+            romajiBtn.className = 'btn-tertiary';
+            romajiBtn.textContent = 'Show Romaji ▾';
+            romajiBtn.addEventListener('click', () => {
+                showingRomaji = !showingRomaji;
+                romajiBtn.textContent = showingRomaji ? 'Hide Romaji' : 'Show Romaji ▾';
+                renderArticleContent();
+            });
+
+            articleControls.appendChild(furiganaBtn);
+            articleControls.appendChild(romajiBtn);
+            renderArticleContent();
+        }
+
+        function renderArticleContent() {
+            articleContent.innerHTML = '';
+
+            // Apply furigana class state
+            if (showingFurigana) {
+                articleContent.classList.add('furigana-active');
+            } else {
+                articleContent.classList.remove('furigana-active');
+            }
+
+            currentArticleData.sentences.forEach(sentence => {
+                const div = document.createElement('div');
+                div.className = 'sentence';
+                if (sentence.id) div.id = sentence.id;
+
+                // Normal mode uses furigana_html (CSS hides/shows rt), hard mode uses plain japanese
+                const textToShow = currentMode === 'normal' ? sentence.furigana_html : sentence.japanese;
+                div.innerHTML = `<div class="sentence-japanese">${textToShow}</div>`;
+
+                if (showingRomaji) {
+                    const romajiDiv = document.createElement('div');
+                    romajiDiv.className = 'sentence-romaji';
+                    romajiDiv.textContent = sentence.romaji;
+                    romajiDiv.style.display = 'block';
+                    div.appendChild(romajiDiv);
+                }
+
+                articleContent.appendChild(div);
+            });
+        }
+
+        function renderEasyMode() {
+            articleContent.classList.add('easy-mode');
+            let revealedCount = 0;
+
+            sentenceCounter.textContent = `${revealedCount} / ${currentArticleData.sentences.length} sentences revealed`;
+            sentenceCounter.style.display = 'block';
+
+            currentArticleData.sentences.forEach((sentence, index) => {
+                const div = document.createElement('div');
+                div.className = 'sentence';
+                if (sentence.id) div.id = sentence.id;
+                div.innerHTML = `
+                    <div class="sentence-japanese">${sentence.japanese}</div>
+                    <div class="sentence-hint">tap to reveal</div>
+                    <div class="sentence-english"></div>
+                `;
+
+                const englishDiv = div.querySelector('.sentence-english');
+                englishDiv.textContent = sentence.english;
+
+                div.addEventListener('click', () => {
+                    englishDiv.classList.toggle('revealed');
+                    if (englishDiv.classList.contains('revealed')) {
+                        revealedCount++;
+                        easyTapCount++;
+                    } else {
+                        revealedCount--;
+                    }
+                    sentenceCounter.textContent = `${revealedCount} / ${currentArticleData.sentences.length} sentences revealed`;
+                });
+
+                articleContent.appendChild(div);
+            });
+        }
+
+        // ============================================
+        // POPULATE REVIEW SECTIONS
+        // ============================================
+        function populateReview() {
+            // Vocabulary
+            vocabBody.innerHTML = '';
+            (currentArticleData.vocabulary || []).forEach(word => {
+                const row = document.createElement('tr');
+                const level = word.jlpt.toUpperCase();
+
+                let priorityColor = '#6B7280';
+                if (word.priority === 'Learning') priorityColor = '#DC2626'; // Red
+                else if (word.priority === 'Young') priorityColor = '#D97706'; // Orange
+                else if (word.priority === 'Mature') priorityColor = '#059669'; // Green
+
+                row.innerHTML = `
+                    <td>${word.kanji}</td>
+                    <td>${word.reading}</td>
+                    <td>${word.meaning}</td>
+                    <td><span class="badge badge-${word.jlpt}">${level}</span></td>
+                    <td style="font-weight: bold; color: ${priorityColor};">${word.priority || '-'}</td>
+                `;
+                vocabBody.appendChild(row);
+            });
+
+            // Grammar
+            grammarBody.innerHTML = '';
+            (currentArticleData.patterns_used || []).forEach(pattern => {
+                const card = document.createElement('div');
+                card.className = 'grammar-card';
+                const level = pattern.level.toUpperCase();
+                card.innerHTML = `
+                    <div class="grammar-pattern">${pattern.pattern}</div>
+                    <div class="grammar-level"><span class="badge badge-${pattern.level.toLowerCase()}">${level}</span></div>
+                    <div class="grammar-example" style="cursor: pointer; padding: 8px; background: #f3f4f6; border-radius: 4px; margin-bottom: 8px;" onclick="
+                        const target = document.getElementById('${pattern.sentence_id}');
+                        target.scrollIntoView({behavior: 'smooth', block: 'center'});
+                        target.classList.remove('highlight-blink');
+                        void target.offsetWidth; /* trigger reflow */
+                        target.classList.add('highlight-blink');
+                    " title="Click to jump to sentence">
+                        <span style="color: #4F46E5; font-size: 12px; font-weight: bold; margin-bottom: 4px; display: block;">🔍 Jump to sentence in article</span>
+                        ${pattern.example}
+                    </div>
+                    <div class="grammar-explanation">${pattern.explanation}</div>
+                `;
+                grammarBody.appendChild(card);
+            });
+        }
+
+        // ============================================
+        // LOCALSTORAGE HELPERS
+        // ============================================
+        function getSavedArticles() {
+            const items = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('jpreader_')) {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    items.push({ key, ...data });
+                }
+            }
+            return items.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        }
+
+        function updateSavedCount() {
+            const count = Object.keys(localStorage).filter(k => k.startsWith('jpreader_')).length;
+            savedCount.textContent = count;
+        }
+
+        // ============================================
+        // MESSAGE HELPERS
+        // ============================================
+        function clearMessages() {
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+            warningMessage.classList.remove('show');
+        }
+
+        function showError(msg) {
+            errorMessage.textContent = msg;
+            errorMessage.classList.add('show');
+        }
+
+        function showSuccess(msg) {
+            successMessage.textContent = msg;
+            successMessage.classList.add('show');
+        }
+
+        function showWarning(msg) {
+            warningMessage.innerHTML = msg;
+            warningMessage.classList.add('show');
+        }
+
+        function showLoading() {
+            loadingSpinner.style.display = 'flex';
+        }
+
+        function hideLoading() {
+            loadingSpinner.style.display = 'none';
+        }
+
+        // ============================================
+        // SETTINGS & TABS
+        // ============================================
+        function switchTab(tab) {
+            ['practice', 'statistics', 'group', 'submit'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) btn.classList.remove('active');
+                const content = document.getElementById(`${t}-tab`);
+                if (content) content.style.display = 'none';
+            });
+
+            const activeBtn = document.getElementById(`tab-${tab}`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const activeContent = document.getElementById(`${tab}-tab`);
+            if (activeContent) activeContent.style.display = 'block';
+
+            if (tab === 'statistics') renderStatistics();
+            if (tab === 'group' && typeof loadGroupTab === 'function') loadGroupTab();
+            if (tab === 'submit' && typeof loadSubmitTab === 'function') loadSubmitTab();
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        function saveSettings() {
+            const mode = document.querySelector('input[name="set-mode"]:checked').value;
+            const topic = document.getElementById('set-topic').value;
+            const goal = document.getElementById('set-goal').value;
+            localStorage.setItem('jpsettings', JSON.stringify({ mode, topic, goal }));
+
+            // Apply immediately to UI
+            document.querySelector(`.mode-button[data-mode="${mode}"]`).click();
+            topicSelect.value = topic;
+
+            closeSettings();
+        }
+
+        function loadSettings() {
+            const settingsStr = localStorage.getItem('jpsettings');
+            if (settingsStr) {
+                const settings = JSON.parse(settingsStr);
+                if (settings.mode) {
+                    document.querySelector(`input[name="set-mode"][value="${settings.mode}"]`).checked = true;
+                    document.querySelector(`.mode-button[data-mode="${settings.mode}"]`).click();
+                }
+                if (settings.topic) {
+                    document.getElementById('set-topic').value = settings.topic;
+                    topicSelect.value = settings.topic;
+                }
+                if (settings.goal) {
+                    document.getElementById('set-goal').value = settings.goal;
+                }
+            } else {
+                document.querySelector('input[name="set-mode"][value="hard"]').checked = true;
+            }
+        }
+
+        function clearStats() {
+            if (confirm("This will delete all your reading history. Are you sure?")) {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key.startsWith('jpsession_')) {
+                        keysToRemove.push(key);
+                    }
+                }
+                keysToRemove.forEach(k => localStorage.removeItem(k));
+                alert("Statistics cleared.");
+                if (document.getElementById('statistics-tab').style.display === 'block') {
+                    renderStatistics();
+                }
+            }
+        }
+
+        // ============================================
+        // STOPWATCH LOGIC
+        // ============================================
+        function startTimer() {
+            timerStartTime = Date.now() - timerElapsedMs;
+            timerInterval = setInterval(updateTimerDisplay, 100);
+            timerRunning = true;
+            lapStartMs = timerElapsedMs;
+            document.getElementById('btn-start').disabled = true;
+            document.getElementById('btn-start').style.opacity = '0.5';
+            document.getElementById('btn-lap').disabled = false;
+            document.getElementById('btn-lap').style.background = '#4F46E5';
+            document.getElementById('btn-lap').style.color = '#fff';
+            document.getElementById('btn-stop').disabled = false;
+        }
+
+        function updateTimerDisplay() {
+            timerElapsedMs = Date.now() - timerStartTime;
+            document.getElementById('timer-display').textContent = formatTime(timerElapsedMs);
+        }
+
+        function formatTime(ms) {
+            const totalSec = Math.floor(ms / 1000);
+            const min = Math.floor(totalSec / 60).toString().padStart(2, '0');
+            const sec = (totalSec % 60).toString().padStart(2, '0');
+            const tenth = Math.floor((ms % 1000) / 100);
+            return `${min}:${sec}.${tenth}`;
+        }
+
+        function recordLap() {
+            lapCount++;
+            const lapMs = timerElapsedMs - lapStartMs;
+            lapStartMs = timerElapsedMs;
+            const lapDiv = document.createElement('div');
+            lapDiv.style.padding = '4px 8px';
+            lapDiv.style.borderBottom = '1px solid #F3F4F6';
+            lapDiv.textContent = `Line ${lapCount} — ${formatTime(lapMs)}`;
+            const lapList = document.getElementById('lap-list');
+            lapList.appendChild(lapDiv);
+            lapList.scrollTop = lapList.scrollHeight;
+        }
+
+        function stopAndCalculate() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            const totalSeconds = timerElapsedMs / 1000;
+
+            const articleText = currentArticleData ? currentArticleData.article : '';
+            const charCount = (articleText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g) || []).length;
+
+            const cpm = charCount > 0 && totalSeconds > 0
+                ? Math.round((charCount / totalSeconds) * 60 * 10) / 10
+                : 0;
+
+            const sessions = getAllSessions();
+            const todaySessions = sessions.filter(s => s.date === new Date().toLocaleDateString('en-IN'));
+            const todayBest = todaySessions.length > 0 ? Math.max(...todaySessions.map(s => s.cpm)) : 0;
+            const allTimeBest = sessions.length > 0 ? Math.max(...sessions.map(s => s.cpm)) : 0;
+
+            const session = {
+                timestamp: Date.now(),
+                date: new Date().toLocaleDateString('en-IN'),
+                totalChars: charCount,
+                totalSeconds: Math.round(totalSeconds),
+                cpm: cpm,
+                mode: currentMode || 'NORMAL',
+                topic: topicSelect ? topicSelect.value : '',
+                lapTimes: lapCount,
+                furiganaRevealed: showingFurigana || false,
+                easyTapsCount: easyTapCount || 0
+            };
+            localStorage.setItem('jpsession_' + session.timestamp, JSON.stringify(session));
+
+            // Sync to Firebase for Group Leaderboard
+            if (currentUser) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const dailyRef = db.collection('sessions').doc(currentUser.uid).collection('daily').doc(todayStr);
+                dailyRef.get().then(docSnapshot => {
+                    let bestCpm = cpm;
+                    let existingMins = 0;
+                    if (docSnapshot.exists) {
+                        bestCpm = Math.max(cpm, docSnapshot.data().cpm || 0);
+                        existingMins = docSnapshot.data().readingMinutes || 0;
+                    }
+                    dailyRef.set({
+                        readingComplete: true,
+                        readingMinutes: existingMins + Math.ceil(totalSeconds / 60),
+                        cpm: bestCpm
+                    }, { merge: true });
+                }).catch(err => console.error("Error saving to Firebase:", err));
+            }
+
+            let cpmColor = '#EF4444';
+            if (cpm >= 200) cpmColor = '#059669';
+            else if (cpm >= 150) cpmColor = '#3B82F6';
+            else if (cpm >= 80) cpmColor = '#F59E0B';
+
+            const resultDiv = document.getElementById('speed-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📖 Reading Speed Result</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
+                <span style="color:#6B7280;">Total characters:</span>
+                <span style="font-weight:600;">${charCount}</span>
+                <span style="color:#6B7280;">Time taken:</span>
+                <span style="font-weight:600;">${Math.floor(totalSeconds / 60)}m ${Math.floor(totalSeconds % 60)}s</span>
+                <span style="color:#6B7280;">Reading speed:</span>
+                <span style="font-weight:700;font-size:18px;color:${cpmColor};">${cpm} CPM</span>
+                <span style="color:#6B7280;">Today's best:</span>
+                <span style="font-weight:600;">${Math.max(cpm, todayBest)} CPM</span>
+                <span style="color:#6B7280;">All-time best:</span>
+                <span style="font-weight:600;">${Math.max(cpm, allTimeBest)} CPM</span>
+                </div>
+                <div style="margin-top:10px;font-size:11px;color:#9CA3AF;">N3 exam target: 200+ CPM</div>
+            `;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerRunning = false;
+            timerElapsedMs = 0;
+            lapCount = 0;
+            lapStartMs = 0;
+            document.getElementById('timer-display').textContent = '00:00.0';
+            document.getElementById('lap-list').innerHTML = '';
+            document.getElementById('speed-result').style.display = 'none';
+            document.getElementById('btn-start').disabled = false;
+            document.getElementById('btn-start').style.opacity = '1';
+            document.getElementById('btn-lap').disabled = true;
+            document.getElementById('btn-lap').style.background = '#E5E7EB';
+            document.getElementById('btn-lap').style.color = '#6B7280';
+            document.getElementById('btn-stop').disabled = true;
+        }
+
+        // ============================================
+        // STATISTICS LOGIC
+        // ============================================
+        function getAllSessions() {
+            const sessions = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('jpsession_')) {
+                    try { sessions.push(JSON.parse(localStorage.getItem(key))); } catch (e) { }
+                }
+            }
+            return sessions.sort((a, b) => b.timestamp - a.timestamp);
+        }
+
+        function calculateStreak(sessions) {
+            if (sessions.length === 0) return 0;
+            const dates = [...new Set(sessions.map(s => s.date))].sort((a, b) => new Date(b) - new Date(a));
+            const today = new Date().toLocaleDateString('en-IN');
+            const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-IN');
+            if (dates[0] !== today && dates[0] !== yesterday) return 0;
+            let streak = 0;
+            let checkDate = dates[0] === today ? new Date() : new Date(Date.now() - 86400000);
+            for (const date of dates) {
+                if (date === checkDate.toLocaleDateString('en-IN')) {
+                    streak++;
+                    checkDate = new Date(checkDate - 86400000);
+                } else break;
+            }
+            return streak;
+        }
+
+        function renderStatistics() {
+            const sessions = getAllSessions();
+            const tab = document.getElementById('statistics-tab');
+
+            if (sessions.length === 0) {
+                tab.innerHTML = `<div style="text-align:center;padding:40px;color:#6B7280;">No reading sessions yet.<br>Generate your first article in the Practice tab, use the stopwatch, and press Stop & Calculate to start tracking your progress.</div>`;
+                return;
+            }
+
+            const today = new Date().toLocaleDateString('en-IN');
+            const todaySessions = sessions.filter(s => s.date === today);
+            const todayBestCpm = todaySessions.length > 0 ? Math.max(...todaySessions.map(s => s.cpm)) : 0;
+            const allTimeBestSession = sessions.reduce((best, s) => s.cpm > best.cpm ? s : best, sessions[0]);
+            const streak = calculateStreak(sessions);
+
+            // Goal progress
+            const settingsStr = localStorage.getItem('jpsettings');
+            const dailyGoal = settingsStr ? JSON.parse(settingsStr).goal || 2 : 2;
+            const progressPct = Math.min((todaySessions.length / dailyGoal) * 100, 100);
+            let barColor = progressPct < 50 ? '#F59E0B' : (progressPct < 100 ? '#3B82F6' : '#059669');
+
+            let html = `
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-card-title">🔥 Streak</div>
+                        <div class="stat-card-value">${streak} days</div>
+                        ${todaySessions.length === 0 ? '<div style="font-size:12px;color:#F59E0B;margin-top:4px;">Read today to keep your streak!</div>' : ''}
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-title">📖 Today</div>
+                        <div class="stat-card-value">${todaySessions.length} articles</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-title">⚡ Best CPM today</div>
+                        <div class="stat-card-value">${todayBestCpm.toFixed(1)}</div>
+                    </div>
+                </div>
+
+                <h2 style="font-size:16px; margin-bottom:12px;">Daily Goal Progress</h2>
+                <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:24px;">
+                    <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
+                        <span>Today: ${todaySessions.length} / ${dailyGoal} articles</span>
+                        ${progressPct === 100 ? '<span style="color:#059669;font-weight:600;">✓ Daily goal complete! 🎉</span>' : ''}
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width:${progressPct}%; background:${barColor};"></div>
+                    </div>
+                </div>
+
+                <h2 style="font-size:16px; margin-bottom:12px;">Personal Records</h2>
+                <div style="background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:16px;margin-bottom:24px;font-size:14px;color:#374151;">
+                    <div style="margin-bottom:8px;">🏆 <b>All-time best CPM:</b> ${allTimeBestSession.cpm} (Topic: ${allTimeBestSession.topic || 'N/A'}, Mode: ${allTimeBestSession.mode}, Date: ${allTimeBestSession.date})</div>
+                    <div style="margin-bottom:8px;">📅 <b>Most articles in a day:</b> ${Math.max(...Object.values(sessions.reduce((acc, s) => { acc[s.date] = (acc[s.date] || 0) + 1; return acc; }, {})))}</div>
+                    <div>🔥 <b>Longest streak ever:</b> ${streak} days (Current logic assumes current streak)</div>
+                </div>
+
+                <h2 style="font-size:16px; margin-bottom:12px;">Last 10 Sessions</h2>
+                <table class="stat-table">
+                    <thead><tr><th>Date</th><th>Topic</th><th>Mode</th><th>Chars</th><th>Time</th><th>CPM</th></tr></thead>
+                    <tbody>
+            `;
+
+            sessions.slice(0, 10).forEach(s => {
+                let color = '#EF4444';
+                if (s.cpm >= 200) color = '#059669';
+                else if (s.cpm >= 150) color = '#3B82F6';
+                else if (s.cpm >= 80) color = '#F59E0B';
+
+                html += `<tr>
+                    <td>${s.date}</td>
+                    <td>${s.topic || '-'}</td>
+                    <td>${s.mode}</td>
+                    <td>${s.totalChars}</td>
+                    <td>${Math.floor(s.totalSeconds / 60)}m ${s.totalSeconds % 60}s</td>
+                    <td style="font-weight:bold;color:${color}">${s.cpm}</td>
+                </tr>`;
+            });
+
+            html += `</tbody></table>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:-16px;margin-bottom:24px;">🎯 N3 exam target: 200+ characters per minute</div>`;
+
+            tab.innerHTML = html;
+        }
+
+        // ============================================
+        // GROUP TAB LOGIC
+        // ============================================
+        let groupUnsubscribe = null;
+        let groupMembersUnsubscribe = [];
+
+        async function loadGroupTab() {
+            if (!currentUser) return alert("Please log in first.");
+            const groupCode = localStorage.getItem('jpgroupcode');
+            if (groupCode) {
+                const doc = await db.collection('groups').doc(groupCode).get();
+                if (doc.exists) {
+                    document.getElementById('group-state-1').style.display = 'none';
+                    document.getElementById('group-state-2').style.display = 'block';
+                    document.getElementById('group-header-name').textContent = `🎌 ${doc.data().name}`;
+                    document.getElementById('group-header-code').textContent = groupCode;
+
+                    if (doc.data().createdBy === currentUser.uid) {
+                        document.getElementById('btn-delete-group').style.display = 'block';
+                    }
+
+                    switchGroupSubTab('today');
+                } else {
+                    localStorage.removeItem('jpgroupcode');
+                    showGroupState1("Your group no longer exists.");
+                }
+            } else {
+                showGroupState1();
+            }
+        }
+
+        function showGroupState1(errorMsg = '') {
+            document.getElementById('group-state-1').style.display = 'block';
+            document.getElementById('group-state-2').style.display = 'none';
+            if (errorMsg) alert(errorMsg);
+        }
+
+        async function createGroup() {
+            const name = document.getElementById('create-group-name').value.trim();
+            if (!name) return alert("Enter a group name");
+
+            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const groupRef = db.collection('groups').doc(code);
+
+            const doc = await groupRef.get();
+            if (doc.exists) return createGroup(); // unlikely collision, retry
+
+            await groupRef.set({
+                name: name,
+                createdBy: currentUser.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                members: {
+                    [currentUser.uid]: {
+                        name: currentUser.displayName,
+                        picture: currentUser.photoURL,
+                        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                }
+            });
+
+            localStorage.setItem('jpgroupcode', code);
+            alert(`Group created! Your code is: ${code}`);
+            loadGroupTab();
+        }
+
+        async function joinGroup() {
+            const code = document.getElementById('join-group-code').value.trim().toUpperCase();
+            if (!code || code.length !== 6) return alert("Enter a valid 6-character code");
+
+            const groupRef = db.collection('groups').doc(code);
+            const doc = await groupRef.get();
+
+            if (!doc.exists) return alert("Group not found. Check the code.");
+
+            await groupRef.update({
+                [`members.${currentUser.uid}`]: {
+                    name: currentUser.displayName,
+                    picture: currentUser.photoURL,
+                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }
+            });
+
+            localStorage.setItem('jpgroupcode', code);
+            alert(`Joined group: ${doc.data().name}! 🎉`);
+            loadGroupTab();
+        }
+
+        function switchGroupSubTab(tabName) {
+            ['today', 'leaderboard', 'stats', 'settings'].forEach(t => {
+                const el = document.getElementById(`group-sub-${t}`);
+                if (el) el.style.display = 'none';
+            });
+            document.querySelectorAll('.group-pill').forEach(el => el.classList.remove('active'));
+
+            const activeEl = document.getElementById(`group-sub-${tabName}`);
+            if (activeEl) activeEl.style.display = 'block';
+
+            const btn = Array.from(document.querySelectorAll('.group-pill')).find(el => el.textContent.toLowerCase().includes(tabName));
+            if (btn) btn.classList.add('active');
+
+            if (tabName === 'today') loadGroupToday();
+            if (tabName === 'leaderboard') loadGroupLeaderboard();
+            if (tabName === 'stats') loadGroupStats();
+        }
+
+        function cleanupGroupListeners() {
+            if (groupUnsubscribe) groupUnsubscribe();
+            groupMembersUnsubscribe.forEach(unsub => unsub());
+            groupMembersUnsubscribe = [];
+        }
+
+        async function loadGroupToday() {
+            cleanupGroupListeners();
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+
+            const container = document.getElementById('group-today-cards');
+            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Loading today...</div>';
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            groupUnsubscribe = db.collection('groups').doc(code).onSnapshot(doc => {
+                if (!doc.exists) {
+                    cleanupGroupListeners();
+                    localStorage.removeItem('jpgroupcode');
+                    return showGroupState1("Group was deleted.");
+                }
+
+                const members = doc.data().members || {};
+                container.innerHTML = ''; // clear
+
+                // For each member, attach a listener to their daily doc
+                Object.keys(members).forEach(uid => {
+                    const memberData = members[uid];
+                    const cardDiv = document.createElement('div');
+                    cardDiv.className = 'member-card';
+                    cardDiv.id = `member-card-${uid}`;
+                    cardDiv.innerHTML = `<div style="text-align:center;color:#6B7280;font-size:12px;">Loading ${memberData.name}...</div>`;
+                    container.appendChild(cardDiv);
+
+                    const unsub = db.collection('sessions').doc(uid).collection('daily').doc(todayStr).onSnapshot(dailyDoc => {
+                        const data = dailyDoc.exists ? dailyDoc.data() : { readingComplete: false, ankiComplete: false };
+
+                        const readingText = data.readingComplete
+                            ? `✅ ${data.readingMinutes || 0} min | ${data.cpm || 0} CPM`
+                            : `❌ Not done yet`;
+                        const ankiText = data.ankiComplete
+                            ? `✅ ${data.ankiReviews || 0} reviews`
+                            : `❌ Not done yet`;
+                        const statusText = (data.readingComplete && data.ankiComplete)
+                            ? `✅ All done — no penalty`
+                            : `⏳ Pending (deadline: 11:59PM)`;
+
+                        const flagHTML = (doc.data().flags && doc.data().flags[uid])
+                            ? `<div style="color:#EF4444; font-size:12px; margin-top:4px;">⚠️ ${doc.data().flags[uid].reason} (${doc.data().flags[uid].count} times)</div>`
+                            : ``;
+
+                        cardDiv.innerHTML = `
+                            <div style="display:flex;align-items:center;gap:12px;border-bottom:1px solid #F3F4F6;padding-bottom:8px;margin-bottom:4px;">
+                                <img src="${memberData.picture || ''}" style="width:32px;height:32px;border-radius:50%;background:#E5E7EB;">
+                                <div style="font-weight:600;color:#111827;flex-grow:1;">${memberData.name}</div>
+                            </div>
+                            <div style="font-size:13px;color:#4B5563;">
+                                <div style="margin-bottom:4px;"><b>Reading:</b> ${readingText}</div>
+                                <div style="margin-bottom:4px;"><b>Anki:</b> ${ankiText}</div>
+                                <div><b>Status:</b> ${statusText}</div>
+                                ${flagHTML}
+                            </div>
+                        `;
+                    });
+                    groupMembersUnsubscribe.push(unsub);
+                });
+            });
+        }
+
+        async function loadGroupLeaderboard() {
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+            const container = document.getElementById('group-leaderboard-content');
+            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Calculating leaderboard...</div>';
+
+            const groupDoc = await db.collection('groups').doc(code).get();
+            const members = groupDoc.data().members || {};
+
+            let stats = [];
+
+            for (const uid of Object.keys(members)) {
+                const member = members[uid];
+                const snapshot = await db.collection('sessions').doc(uid).collection('daily').get();
+                const docs = snapshot.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                let readingMins = 0;
+                let readingCount = 0;
+                let ankiCount = 0;
+                let ankiReviews = 0;
+                let cpms = [];
+
+                docs.forEach(d => {
+                    if (d.readingComplete) { readingMins += (d.readingMinutes || 0); readingCount++; }
+                    if (d.ankiComplete) { ankiCount++; ankiReviews += (d.ankiReviews || 0); }
+                    if (d.cpm > 0) cpms.push(d.cpm);
+                });
+
+                const bestCPM = cpms.length > 0 ? Math.max(...cpms) : 0;
+                const avgCPM7 = cpms.slice(0, 7).reduce((a, b) => a + b, 0) / (Math.min(7, cpms.length) || 1);
+
+                let currentStreak = 0;
+                const today = new Date().toISOString().split('T')[0];
+                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+                let checkDate = docs.length > 0 && (docs[0].date === today || docs[0].date === yesterday) ? new Date(docs[0].date) : null;
+                if (checkDate) {
+                    for (const d of docs) {
+                        if (d.date === checkDate.toISOString().split('T')[0] && d.readingComplete && d.ankiComplete) {
+                            currentStreak++;
+                            checkDate = new Date(checkDate - 86400000);
+                        } else { break; }
+                    }
+                }
+
+                const score = (readingMins / 60 * 2) + (ankiCount * 1.5) + (currentStreak * 0.5);
+
+                stats.push({
+                    uid, name: member.name,
+                    score: score.toFixed(1),
+                    readingHrs: (readingMins / 60).toFixed(1),
+                    articles: readingCount,
+                    bestCPM, avgCPM7: avgCPM7.toFixed(1),
+                    ankiCount, ankiReviews, currentStreak
+                });
+            }
+
+            stats.sort((a, b) => b.score - a.score);
+
+            let html = '<div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;margin-bottom:24px;">';
+            stats.slice(0, 3).forEach((s, idx) => {
+                const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉');
+                html += `
+                    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:${idx < 2 ? '1px solid #F3F4F6' : 'none'};">
+                        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;">
+                            <span>${medal} ${s.name}</span>
+                            <span style="color:#4F46E5;">${s.score} pts</span>
+                        </div>
+                        <div style="font-size:13px;color:#6B7280;margin-top:4px;">
+                            📖 ${s.readingHrs} hrs reading | ⚡ Best: ${s.bestCPM} CPM | 🔥 ${s.currentStreak} day streak<br>
+                            📚 ${s.ankiReviews} Anki reviews across ${s.ankiCount} days
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            html += '<div style="overflow-x:auto;"><table class="stat-table"><thead><tr><th>Stat</th>';
+            stats.forEach(s => html += `<th>${s.name.split(' ')[0]}</th>`);
+            html += '</tr></thead><tbody>';
+
+            const rows = [
+                { label: 'Reading Hours', key: 'readingHrs' },
+                { label: 'Articles Read', key: 'articles' },
+                { label: 'Best CPM', key: 'bestCPM' },
+                { label: 'Avg CPM (7d)', key: 'avgCPM7' },
+                { label: 'Anki Days', key: 'ankiCount' },
+                { label: 'Anki Reviews', key: 'ankiReviews' },
+                { label: 'Current Streak', key: 'currentStreak' }
+            ];
+
+            rows.forEach(r => {
+                html += `<tr><td>${r.label}</td>`;
+                const maxVal = Math.max(...stats.map(s => parseFloat(s[r.key])));
+                stats.forEach(s => {
+                    const isMax = parseFloat(s[r.key]) === maxVal && maxVal > 0;
+                    html += `<td style="${isMax ? 'color:#059669;font-weight:bold;background:#D1FAE5;' : ''}">${s[r.key]}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += '</tbody></table></div>';
+
+            container.innerHTML = html;
+        }
+
+        async function loadGroupStats() {
+            const container = document.getElementById('group-stats-content');
+            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Loading heatmap...</div>';
+
+            const snapshot = await db.collection('sessions').doc(currentUser.uid).collection('daily').get();
+            const docsMap = {};
+            snapshot.docs.forEach(d => { docsMap[d.id] = d.data(); });
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let gridHtml = '<div class="heatmap-grid">';
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                // Set to noon local time so timezone shift doesn't cross a day boundary when comparing
+                const cellDate = new Date(year, month, i, 12, 0, 0);
+                const isFuture = cellDate > now;
+                let bg = '#E5E7EB';
+                if (!isFuture) {
+                    const data = docsMap[dateStr];
+                    if (data && data.readingComplete && data.ankiComplete) bg = '#059669';
+                    else if (data && (data.readingComplete || data.ankiComplete)) bg = '#F59E0B';
+                    else bg = '#EF4444';
+                }
+                gridHtml += `<div class="heatmap-cell" style="background:${bg};" title="${dateStr}">${i}</div>`;
+            }
+            gridHtml += '</div>';
+
+            container.innerHTML = `<div class="submit-card"><h3>Monthly Consistency</h3>${gridHtml}</div>`;
+        }
+
+        async function leaveGroup() {
+            if (!confirm("Leave this group?")) return;
+            const code = localStorage.getItem('jpgroupcode');
+            if (code) {
+                await db.collection('groups').doc(code).update({
+                    [`members.${currentUser.uid}`]: firebase.firestore.FieldValue.delete()
+                });
+                localStorage.removeItem('jpgroupcode');
+            }
+            cleanupGroupListeners();
+            showGroupState1();
+        }
+
+        async function deleteGroup() {
+            if (!confirm("Delete group for everyone? This cannot be undone.")) return;
+            const code = localStorage.getItem('jpgroupcode');
+            if (code) {
+                await db.collection('groups').doc(code).delete();
+                localStorage.removeItem('jpgroupcode');
+            }
+            cleanupGroupListeners();
+            showGroupState1();
+        }
+
+        // ============================================
+        // SUBMIT TAB LOGIC
+        // ============================================
+        let currentOcrFile = null;
+
+        function getDailyCode() {
+            const now = new Date();
+            const day = now.getDate().toString().padStart(2, '0');
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const year = now.getFullYear().toString().slice(-2);
+            const raw = day + month + year;
+            let code = '';
+            for (let i = 0; i < raw.length; i++) {
+                code += i % 2 === 0 ? String.fromCharCode(65 + parseInt(raw[i])) : raw[i];
+            }
+            return code.toUpperCase();
+        }
+
+        async function loadSubmitTab() {
+            if (!currentUser) return alert("Please log in first.");
+            document.getElementById('daily-code-display').textContent = getDailyCode().split('').join(' ');
+
+            const today = new Date().toISOString().split('T')[0];
+            const doc = await db.collection('sessions').doc(currentUser.uid).collection('daily').doc(today).get();
+
+            if (doc.exists && doc.data().ankiSubmitted) {
+                showAlreadySubmitted(doc.data());
+            } else {
+                showUploadForm();
+            }
+        }
+
+        function showUploadForm() {
+            document.getElementById('submit-form-area').style.display = 'block';
+            document.getElementById('submit-result-area').style.display = 'none';
+            document.getElementById('ocr-preview-area').style.display = 'none';
+            document.getElementById('anki-file-input').value = '';
+            currentOcrFile = null;
+        }
+
+        function showAlreadySubmitted(data) {
+            document.getElementById('submit-form-area').style.display = 'none';
+            const area = document.getElementById('submit-result-area');
+            area.style.display = 'block';
+            area.innerHTML = `
+                <div class="submit-card" style="background:#ECFDF5; border-color:#34D399;">
+                    <h3 style="color:#059669; margin-top:0;">✅ Already submitted today!</h3>
+                    <div style="margin-bottom:8px;"><b>Reviews recorded:</b> ${data.ankiReviews || 0}</div>
+                    <div style="margin-bottom:16px;"><b>Submitted at:</b> ${data.ankiSubmittedAt ? data.ankiSubmittedAt.toDate().toLocaleTimeString() : 'Unknown'}</div>
+                    <a href="${data.ankiScreenshotURL}" target="_blank" style="color:#059669; font-weight:600; text-decoration:underline;">View submitted screenshot</a>
+                </div>
+            `;
+        }
+
+        function handleAnkiImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            currentOcrFile = file;
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById('ocr-image-preview').src = e.target.result;
+                document.getElementById('ocr-preview-area').style.display = 'block';
+                document.getElementById('ocr-status').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // Add drag & drop listeners
+        const dropZone = document.getElementById('anki-drop-zone');
+        if (dropZone) {
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    document.getElementById('anki-file-input').files = e.dataTransfer.files;
+                    handleAnkiImageSelect({ target: { files: e.dataTransfer.files } });
+                }
+            });
+        }
+
+        async function startOcrAnalysis() {
+            if (!currentOcrFile) return alert("Please select an image first.");
+            const btn = document.getElementById('btn-analyse-screenshot');
+            const statusDiv = document.getElementById('ocr-status');
+
+            btn.disabled = true;
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '🔍 Initializing OCR Engine...';
+
+            try {
+                const { createWorker } = Tesseract;
+                const worker = await createWorker('eng+jpn', 1, {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            const pct = Math.round(m.progress * 100);
+                            statusDiv.innerHTML = `🔍 Reading screenshot... ${pct}%`;
+                        }
+                    }
+                });
+
+                const { data: { text } } = await worker.recognize(currentOcrFile);
+                await worker.terminate();
+
+                const results = parseAnkiStats(text);
+                showOcrResults(results);
+            } catch (err) {
+                console.error(err);
+                alert("Failed to analyze image. Try again.");
+            } finally {
+                btn.disabled = false;
+                statusDiv.style.display = 'none';
+            }
+        }
+
+        function parseAnkiStats(ocrText) {
+            const results = {
+                reviewsToday: null,
+                timeStudied: null,
+                codeFound: false,
+                rawText: ocrText
+            };
+
+            const reviewPatterns = [
+                /reviews[:\s]+(\d+)/i,
+                /(\d+)\s*reviews/i,
+                /today[:\s]+(\d+)/i,
+                /学習[:\s]+(\d+)/,
+                /(\d+)\s*cards/i
+            ];
+
+            for (const pattern of reviewPatterns) {
+                const match = ocrText.match(pattern);
+                if (match) {
+                    results.reviewsToday = parseInt(match[1]);
+                    break;
+                }
+            }
+
+            const dailyCode = getDailyCode();
+            results.codeFound = ocrText.toUpperCase().replace(/\s/g, '').includes(dailyCode.replace(/\s/g, ''));
+
+            const timeMatch = ocrText.match(/(\d+)\s*(min|minutes|分)/i);
+            if (timeMatch) results.timeStudied = parseInt(timeMatch[1]);
+
+            return results;
+        }
+
+        function showOcrResults(results) {
+            const area = document.getElementById('submit-result-area');
+            area.style.display = 'block';
+
+            if (results.reviewsToday !== null && results.codeFound) {
+                const pass = results.reviewsToday >= 50;
+                area.innerHTML = `
+                    <div class="submit-card">
+                        <h3 style="margin-top:0;">✅ Verification Successful</h3>
+                        <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
+                        <div style="margin-bottom:8px;"><b>Study time:</b> ${results.timeStudied ? results.timeStudied + ' min' : 'Unknown'}</div>
+                        <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ✅ Found</div>
+                        <div style="margin-bottom:8px;"><b>Minimum required:</b> 50 reviews</div>
+                        <div style="margin-bottom:16px;"><b>Status:</b> ${pass ? '✅ PASS' : '❌ FAIL (Below minimum)'}</div>
+                        <button class="btn-primary" onclick="submitAnkiSession(${results.reviewsToday}, true, null)" style="width:100%; background:#059669;">Submit & Save</button>
+                        <div id="submit-loading-status" style="text-align:center; margin-top:12px; color:#4F46E5; font-weight:600;"></div>
+                    </div>
+                `;
+            } else if (results.reviewsToday !== null && !results.codeFound) {
+                area.innerHTML = `
+                    <div class="submit-card" style="border-color:#F59E0B;">
+                        <h3 style="margin-top:0; color:#D97706;">⚠️ Code Not Detected</h3>
+                        <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
+                        <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ❌ Not found</div>
+                        <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">Today's code should appear in your screenshot. Retake with the code visible, or explain below:</p>
+                        <input type="text" id="suspicious-reason" placeholder="Optional explanation..." style="margin-bottom:16px;">
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                            <button class="btn-secondary" onclick="showUploadForm()">Retake Screenshot</button>
+                            <button class="btn-primary" onclick="submitAnkiSession(${results.reviewsToday}, false, document.getElementById('suspicious-reason').value)" style="background:#6B7280;">Submit Anyway</button>
+                        </div>
+                        <div id="submit-loading-status" style="text-align:center; margin-top:12px; color:#4F46E5; font-weight:600;"></div>
+                    </div>
+                `;
+            } else {
+                area.innerHTML = `
+                    <div class="submit-card" style="border-color:#EF4444;">
+                        <h3 style="margin-top:0; color:#DC2626;">❌ Could Not Read Stats</h3>
+                        <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">OCR could not detect review count. Please ensure image is clear and "Today" tab is selected.</p>
+                        <div style="background:#F3F4F6; padding:8px; font-family:monospace; font-size:10px; max-height:100px; overflow-y:auto; margin-bottom:16px;">
+                            Raw text detected: ${results.rawText.substring(0, 200)}...
+                        </div>
+                        <button class="btn-primary" onclick="showUploadForm()" style="width:100%;">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        async function submitAnkiSession(reviewsToday, codeFound, reason) {
+            const uid = currentUser.uid;
+            const today = new Date().toISOString().split('T')[0];
+            const statusDiv = document.getElementById('submit-loading-status');
+
+            try {
+                // Prevent multiple clicks
+                const btns = document.querySelectorAll('#submit-result-area button');
+                btns.forEach(b => b.disabled = true);
+
+                statusDiv.textContent = '📤 Uploading screenshot...';
+
+                // Upload to Storage
+                const filename = `${uid}_${today}_${Date.now()}.jpg`;
+                const fileRef = storage.ref().child(`anki-screenshots/${uid}/${filename}`);
+                const uploadTask = await fileRef.put(currentOcrFile);
+                const downloadURL = await uploadTask.ref.getDownloadURL();
+
+                statusDiv.textContent = '💾 Saving your data...';
+
+                const ankiData = {
+                    ankiComplete: reviewsToday >= 50,
+                    ankiReviews: reviewsToday || 0,
+                    ankiSubmittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    ankiScreenshotURL: downloadURL,
+                    ankiCodeFound: codeFound,
+                    ankiSubmitted: true,
+                    ankiSuspicious: !codeFound,
+                    ankiReason: reason || null,
+                    ankiMinimumMet: reviewsToday >= 50
+                };
+
+                await db.collection('sessions').doc(uid).collection('daily').doc(today).set(ankiData, { merge: true });
+
+                if (!codeFound) await checkSuspiciousCount(uid);
+
+                statusDiv.textContent = '✅ Success!';
+                setTimeout(() => loadSubmitTab(), 1500);
+            } catch (e) {
+                console.error(e);
+                statusDiv.textContent = '❌ Error saving: ' + e.message;
+                btns.forEach(b => b.disabled = false);
+            }
+        }
+
+        async function checkSuspiciousCount(uid) {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+
+            const snapshot = await db.collection('sessions').doc(uid).collection('daily').where('ankiSuspicious', '==', true).get();
+            const recentSuspicious = snapshot.docs.filter(doc => doc.id >= sevenDaysAgo);
+
+            if (recentSuspicious.length >= 2) {
+                const groupCode = localStorage.getItem('jpgroupcode');
+                if (groupCode) {
+                    await db.collection('groups').doc(groupCode).update({
+                        [`flags.${uid}`]: {
+                            reason: 'Multiple submissions without anti-cheat code',
+                            count: recentSuspicious.length,
+                            flaggedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }
+                    });
+                }
+            }
+        }
+
+        // ============================================
+        // INITIALIZE
+        // ============================================
+        function initialize() {
+            updateSavedCount();
+            // Check if there's a saved article to load on init
+        }
+
+        initialize();
+    </script>
+</body>
+
+</html>
