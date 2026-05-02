@@ -4128,21 +4128,21 @@ JSON structure to return:
 
         async function checkScreenshotDuplicate(imageFile, userId) {
             const hash = await hashScreenshot(imageFile);
-            
+
             const stored = localStorage.getItem(`ankiHashes_${userId}`);
             const usedHashes = stored ? JSON.parse(stored) : [];
-            
+
             if (usedHashes.includes(hash)) {
-                return { 
+                return {
                     isDuplicate: true,
                     hash,
                     message: '⚠️ This screenshot has already been submitted before. Please take a fresh screenshot of today\'s Anki stats.'
                 };
             }
-            
+
             usedHashes.push(hash);
             localStorage.setItem(`ankiHashes_${userId}`, JSON.stringify(usedHashes));
-            
+
             return { isDuplicate: false, hash };
         }
 
