@@ -1,0 +1,318 @@
+{
+  "groupName": "Anki Study Group",
+  "members": [
+    "jaimin pandey",
+    "Nishat patel",
+    "Saumya mori"
+  ],
+  "memberColors": {
+    "jaimin pandey": "#01696f",
+    "Nishat patel": "#437a22",
+    "Saumya mori": "#964219"
+  },
+  "penaltyPerDay": 50,
+  "startDate": "2026-04-14",
+  "completions": {
+    "2026-04-14": {
+      "jaimin pandey": {
+        "cards": 441,
+        "timePerCard": 16.4,
+        "ts": "2026-04-14T16:14:09.18565+00:00"
+      },
+      "Nishat patel": {
+        "cards": 322,
+        "timePerCard": 10.88,
+        "ts": "2026-04-14T16:14:53.087922+00:00"
+      },
+      "Saumya mori": {
+        "cards": 210,
+        "timePerCard": 3.85,
+        "ts": "2026-04-14T16:15:36.691792+00:00"
+      }
+    },
+    "2026-04-15": {
+      "jaimin pandey": {
+        "cards": 499,
+        "timePerCard": 14.14,
+        "ts": "2026-04-15T15:15:10.752055+00:00"
+      },
+      "Saumya mori": {
+        "cards": 242,
+        "timePerCard": 8.75,
+        "ts": "2026-04-15T15:33:16.079814+00:00"
+      },
+      "Nishat patel": {
+        "cards": 291,
+        "timePerCard": 9.33,
+        "ts": "2026-04-15T16:20:26.498288+00:00"
+      }
+    },
+    "2026-04-16": {
+      "Saumya mori": {
+        "cards": 275,
+        "timePerCard": 7.8,
+        "ts": "2026-04-16T08:54:47.652787+00:00"
+      },
+      "Nishat patel": {
+        "cards": 282,
+        "timePerCard": 11.74,
+        "ts": "2026-04-16T17:38:58.190965+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 382,
+        "timePerCard": 15.33,
+        "ts": "2026-04-16T18:36:06.33052+00:00"
+      }
+    },
+    "2026-04-17": {
+      "jaimin pandey": {
+        "cards": 490,
+        "timePerCard": 12.59,
+        "ts": "2026-04-17T14:12:53.73736+00:00"
+      },
+      "Saumya mori": {
+        "cards": 345,
+        "timePerCard": 9.41,
+        "ts": "2026-04-17T14:38:52.10803+00:00"
+      },
+      "Nishat patel": {
+        "cards": 342,
+        "timePerCard": 8.28,
+        "ts": "2026-04-17T15:24:43.833227+00:00"
+      }
+    },
+    "2026-04-18": {
+      "jaimin pandey": {
+        "cards": 479,
+        "timePerCard": 11.54,
+        "ts": "2026-04-18T07:00:16.275157+00:00"
+      },
+      "Saumya mori": {
+        "cards": 391,
+        "timePerCard": 11.12,
+        "ts": "2026-04-18T10:56:12.833626+00:00"
+      },
+      "Nishat patel": {
+        "cards": 373,
+        "timePerCard": 10.49,
+        "ts": "2026-04-18T16:02:28.675898+00:00"
+      }
+    },
+    "2026-04-19": {
+      "jaimin pandey": {
+        "cards": 447,
+        "timePerCard": 10.77,
+        "ts": "2026-04-19T15:28:01.99868+00:00"
+      },
+      "Saumya mori": {
+        "cards": 432,
+        "timePerCard": 11.56,
+        "ts": "2026-04-19T16:06:00.233018+00:00"
+      }
+    },
+    "2026-04-20": {
+      "Saumya mori": {
+        "cards": 494,
+        "timePerCard": 11.41,
+        "ts": "2026-04-20T13:34:17.493395+00:00"
+      },
+      "Nishat patel": {
+        "cards": 605,
+        "timePerCard": 9.77,
+        "ts": "2026-04-20T18:18:40.39163+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 500,
+        "timePerCard": 12.55,
+        "ts": "2026-04-20T18:32:46.89997+00:00"
+      }
+    },
+    "2026-04-21": {
+      "Saumya mori": {
+        "cards": 508,
+        "timePerCard": 10.71,
+        "ts": "2026-04-21T14:35:49.195245+00:00"
+      },
+      "Nishat patel": {
+        "cards": 425,
+        "timePerCard": 8.78,
+        "ts": "2026-04-21T17:19:32.545634+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 585,
+        "timePerCard": 13.65,
+        "ts": "2026-04-21T18:31:49.032417+00:00"
+      }
+    },
+    "2026-04-22": {
+      "Nishat patel": {
+        "cards": 376,
+        "timePerCard": 7.73,
+        "ts": "2026-04-22T12:44:41.384525+00:00"
+      },
+      "Saumya mori": {
+        "cards": 441,
+        "timePerCard": 10.07,
+        "ts": "2026-04-22T16:36:12.970573+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 479,
+        "timePerCard": 11.54,
+        "ts": "2026-04-22T16:36:58.36783+00:00"
+      }
+    },
+    "2026-04-23": {
+      "Saumya mori": {
+        "cards": 454,
+        "timePerCard": 9.97,
+        "ts": "2026-04-23T07:52:35.882744+00:00"
+      },
+      "Nishat patel": {
+        "cards": 369,
+        "timePerCard": 6.62,
+        "ts": "2026-04-23T16:02:03.269793+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 671,
+        "timePerCard": 10.26,
+        "ts": "2026-04-23T18:09:53.897955+00:00"
+      }
+    },
+    "2026-04-24": {
+      "Nishat patel": {
+        "cards": 372,
+        "timePerCard": 8.29,
+        "ts": "2026-04-24T11:16:39.927251+00:00"
+      },
+      "Saumya mori": {
+        "cards": 478,
+        "timePerCard": 7.01,
+        "ts": "2026-04-24T12:26:03.729+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 620,
+        "timePerCard": 10.69,
+        "ts": "2026-04-24T16:52:42.055949+00:00"
+      }
+    },
+    "2026-04-25": {
+      "Saumya mori": {
+        "cards": 457,
+        "timePerCard": 8.55,
+        "ts": "2026-04-25T12:18:10.013695+00:00"
+      },
+      "Nishat patel": {
+        "cards": 398,
+        "timePerCard": 8.09,
+        "ts": "2026-04-25T13:25:56.044954+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 613,
+        "timePerCard": 9.13,
+        "ts": "2026-04-25T14:43:02.771753+00:00"
+      }
+    },
+    "2026-04-26": {
+      "Saumya mori": {
+        "cards": 455,
+        "timePerCard": 8.99,
+        "ts": "2026-04-26T11:17:57.669817+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 624,
+        "timePerCard": 11.31,
+        "ts": "2026-04-26T16:56:50.96568+00:00"
+      },
+      "Nishat patel": {
+        "cards": 406,
+        "timePerCard": 8.44,
+        "ts": "2026-04-26T18:06:40.367891+00:00"
+      }
+    },
+    "2026-04-27": {
+      "Saumya mori": {
+        "cards": 532,
+        "timePerCard": 8.88,
+        "ts": "2026-04-27T11:38:31.597067+00:00"
+      },
+      "Nishat patel": {
+        "cards": 421,
+        "timePerCard": 8.74,
+        "ts": "2026-04-27T15:37:17.268+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 656,
+        "timePerCard": 10.27,
+        "ts": "2026-04-27T18:21:10.596338+00:00"
+      }
+    },
+    "2026-04-28": {
+      "Saumya mori": {
+        "cards": 521,
+        "timePerCard": 8.88,
+        "ts": "2026-04-28T12:11:10.970733+00:00"
+      },
+      "Nishat patel": {
+        "cards": 439,
+        "timePerCard": 8.44,
+        "ts": "2026-04-28T18:16:54.574504+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 649,
+        "timePerCard": 14.17,
+        "ts": "2026-04-28T18:20:26.21512+00:00"
+      }
+    },
+    "2026-04-29": {
+      "jaimin pandey": {
+        "cards": 618,
+        "timePerCard": 13.23,
+        "ts": "2026-04-29T08:33:15.834645+00:00"
+      },
+      "Saumya mori": {
+        "cards": 579,
+        "timePerCard": 7.15,
+        "ts": "2026-04-29T10:38:09.825735+00:00"
+      },
+      "Nishat patel": {
+        "cards": 414,
+        "timePerCard": 10.05,
+        "ts": "2026-04-29T16:31:35.651251+00:00"
+      }
+    },
+    "2026-04-30": {
+      "Nishat patel": {
+        "cards": 438,
+        "timePerCard": 9.29,
+        "ts": "2026-04-30T17:05:35.760278+00:00"
+      },
+      "Saumya mori": {
+        "cards": 570,
+        "timePerCard": 8.73,
+        "ts": "2026-04-30T17:11:23.520488+00:00"
+      },
+      "jaimin pandey": {
+        "cards": 619,
+        "timePerCard": 12.77,
+        "ts": "2026-04-30T18:31:07.423519+00:00"
+      }
+    },
+    "2026-05-01": {
+      "jaimin pandey": {
+        "cards": 723,
+        "timePerCard": 16.97,
+        "ts": "2026-05-01T10:24:08.416227+00:00"
+      },
+      "Saumya mori": {
+        "cards": 756,
+        "timePerCard": 7.79,
+        "ts": "2026-05-01T08:14:59.355207+00:00"
+      },
+      "Nishat patel": {
+        "cards": 468,
+        "timePerCard": 14.56,
+        "ts": "2026-05-01T16:03:51.784545+00:00"
+      }
+    }
+  }
+}

@@ -1113,6 +1113,8 @@
                 <div class="sentence-counter" id="sentenceCounter"></div>
                 <div id="articleContent"></div>
             </div>
+            
+            <div id="readingCoveragePanel" style="display: none;"></div>
 
             <!-- ============================================
              SECTION 4: REVIEW PANEL
@@ -1387,6 +1389,19 @@
         let timerStartTime = null;
         let timerElapsedMs = 0;
         let timerRunning = false;
+        let wkKanjiDict = null;
+
+        // Fetch WK Kanji Dictionary on startup
+        fetch('wk_kanji.json')
+            .then(res => res.json())
+            .then(data => {
+                wkKanjiDict = {};
+                data.forEach(item => {
+                    wkKanjiDict[item.characters] = item;
+                });
+            })
+            .catch(err => console.error("Kanji dict error:", err));
+
         let lapCount = 0;
         let lapStartMs = 0;
 
@@ -2084,6 +2099,7 @@ JSON structure to return:
 
                 renderArticle();
                 updateSavedCount();
+                checkReadingCoverage(currentArticleData, kanji);
 
                 // Play success sound when everything is visible
                 playSuccessSound();
@@ -2124,6 +2140,92 @@ JSON structure to return:
                 showSuccess('✓ All kanji in this article are from your known list');
             }
         }
+
+        function checkReadingCoverage(articleData, targetKanjiList) {
+            const coveragePanel = document.getElementById('readingCoveragePanel');
+            if (!wkKanjiDict || !targetKanjiList || targetKanjiList.length === 0) {
+                coveragePanel.style.display = 'none';
+                return;
+            }
+
+            // Extract all <rt> texts associated with kanji in furigana_html
+            let allFurigana = [];
+            articleData.sentences.forEach(s => {
+                if (s.furigana_html) {
+                    const regex = /<ruby>(.*?)<rt>(.*?)<\/rt><\/ruby>/g;
+                    let match;
+                    while ((match = regex.exec(s.furigana_html)) !== null) {
+                        allFurigana.push({ kanjiBlock: match[1], reading: match[2] });
+                    }
+                }
+            });
+
+            const missingReadings = [];
+
+            targetKanjiList.forEach(k => {
+                const dictEntry = wkKanjiDict[k];
+                if (!dictEntry) return;
+
+                const requiredReadings = [];
+                if (dictEntry.on_readings) requiredReadings.push(...dictEntry.on_readings);
+                if (dictEntry.kun_readings) requiredReadings.push(...dictEntry.kun_readings);
+
+                const readingsForKanji = allFurigana
+                    .filter(f => f.kanjiBlock.includes(k))
+                    .map(f => f.reading);
+
+                const missed = [];
+                requiredReadings.forEach(req => {
+                    const isCovered = readingsForKanji.some(usedReading => usedReading.includes(req));
+                    if (!isCovered) {
+                        missed.push(req);
+                    }
+                });
+
+                if (missed.length > 0) {
+                    missingReadings.push({ kanji: k, missed });
+                }
+            });
+
+            if (missingReadings.length === 0) {
+                coveragePanel.style.display = 'block';
+                coveragePanel.innerHTML = `
+                    <div style="background:#D1FAE5; color:#065F46; padding:12px; border-radius:8px; margin-top:16px; font-size:14px; display:flex; align-items:center; gap:8px;">
+                        <span>✅</span> All required readings for your target kanji are covered!
+                    </div>
+                `;
+            } else {
+                coveragePanel.style.display = 'block';
+                let html = `
+                    <div style="background:#FEF3C7; border:1px solid #F59E0B; padding:16px; border-radius:8px; margin-top:16px;">
+                        <div style="color:#B45309; font-weight:700; margin-bottom:8px; font-size:15px; display:flex; align-items:center; gap:8px;">
+                            <span>⚠️</span> Not all readings covered
+                        </div>
+                        <div style="font-size:13px; color:#92400E; margin-bottom:12px;">
+                            The article missed some required readings for your kanji. Suggest regenerating to practice all readings.
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                `;
+                
+                missingReadings.forEach(mr => {
+                    html += `
+                        <div style="background:#fff; border:1px solid #FCD34D; padding:4px 8px; border-radius:4px; font-size:13px; color:#B45309;">
+                            <strong>${mr.kanji}</strong>: ${mr.missed.join(', ')}
+                        </div>
+                    `;
+                });
+
+                html += `
+                        </div>
+                        <button onclick="handleRegenerate()" style="background:#F59E0B; color:#fff; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:600; font-size:13px;">
+                            Regenerate Article
+                        </button>
+                    </div>
+                `;
+                coveragePanel.innerHTML = html;
+            }
+        }
+
 
         function extractKanji(text) {
             const kanjiRegex = /[\u4E00-\u9FFF]/g;
@@ -2968,15 +3070,15 @@ JSON structure to return:
             if (!code) return;
             const amount = parseInt(document.getElementById('penalty-amount-input').value) || 0;
             await db.collection('groups').doc(code).update({ penaltyPerMiss: amount });
-            alert(`Penalty set to \u20b9${ amount } per missed day.`);
+            alert(`Penalty set to \u20b9${amount} per missed day.`);
         }
 
         async function removeMember(uid, name) {
-            if (!confirm(`Remove ${ name } from the group ? `)) return;
+            if (!confirm(`Remove ${name} from the group ? `)) return;
             const code = localStorage.getItem('jpgroupcode');
             if (!code) return;
             await db.collection('groups').doc(code).update({
-                [`members.${ uid } `]: firebase.firestore.FieldValue.delete()
+                [`members.${uid} `]: firebase.firestore.FieldValue.delete()
             });
             loadGroupSettings();
             loadGroupToday();
@@ -3007,8 +3109,8 @@ JSON structure to return:
                     const memberData = members[uid];
                     const cardDiv = document.createElement('div');
                     cardDiv.className = 'member-card';
-                    cardDiv.id = `member - card - ${ uid } `;
-                    cardDiv.innerHTML = `<div style="text-align:center;color:#6B7280;font-size:12px;" > Loading ${ memberData.name }...</div> `;
+                    cardDiv.id = `member - card - ${uid} `;
+                    cardDiv.innerHTML = `<div style="text-align:center;color:#6B7280;font-size:12px;" > Loading ${memberData.name}...</div> `;
                     container.appendChild(cardDiv);
 
                     const unsub = db.collection('sessions').doc(uid).collection('daily').doc(todayStr).onSnapshot(dailyDoc => {
@@ -3019,19 +3121,19 @@ JSON structure to return:
                         const bothDone = ankiDone && readingDone;
 
                         const ankiText = ankiDone
-                            ? `✅ ${ data.ankiReviews || 0 } reviews`
+                            ? `✅ ${data.ankiReviews || 0} reviews`
                             : `⏳ Pending`;
                         const readingText = readingDone
-                            ? `✅ ${ data.readingMinutes || 0 } min`
+                            ? `✅ ${data.readingMinutes || 0} min`
                             : data.readingMinutes > 0
-                                ? `⏳ ${ data.readingMinutes } / 30 min`
+                                ? `⏳ ${data.readingMinutes} / 30 min`
                                 : `⏳ Pending`;
                         const statusBg = bothDone ? 'background:#D1FAE5;border-color:#34D399;' : 'background:#FFF7ED;border-color:#FCD34D;';
                         const statusColor = bothDone ? 'color:#059669;' : 'color:#D97706;';
                         const statusMsg = bothDone ? '✅ All tasks complete!' : `⏳ Pending(deadline 12: 10 AM)`;
 
                         const flagHTML = (doc.data().flags && doc.data().flags[uid])
-                            ? `<div style="color:#EF4444; font-size:12px; margin-top:6px;" >⚠️ ${ doc.data().flags[uid].reason }(${ doc.data().flags[uid].count }×)</div> `
+                            ? `<div style="color:#EF4444; font-size:12px; margin-top:6px;" >⚠️ ${doc.data().flags[uid].reason}(${doc.data().flags[uid].count}×)</div> `
                             : ``;
 
                         const readingPct = Math.min(100, Math.round((data.readingMinutes || 0) / 30 * 100));
@@ -3053,7 +3155,7 @@ JSON structure to return:
                                     ${data.readingMinutes > 0 && !readingDone ? '<div style="background:#E5E7EB;border-radius:3px;height:4px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + readingPct + '%;background:#F59E0B;border-radius:3px;"></div></div>' : ''}
                                 </div>
                             </div>
-                            ${ flagHTML }
+                            ${flagHTML}
                         `;
                     });
                     groupMembersUnsubscribe.push(unsub);
@@ -3164,7 +3266,7 @@ JSON structure to return:
                         <td style="padding:12px;color:#9CA3AF;font-size:13px;">${idx + 1}</td>
                         <td style="padding:12px;">
                             <div style="display:flex;align-items:center;gap:8px;">
-                                <img src="${s.picture||''}" style="width:28px;height:28px;border-radius:50%;background:#E5E7EB;flex-shrink:0;">
+                                <img src="${s.picture || ''}" style="width:28px;height:28px;border-radius:50%;background:#E5E7EB;flex-shrink:0;">
                                 <span style="font-weight:600;color:#111827;font-size:14px;">${s.name}</span>
                             </div>
                         </td>
@@ -3258,7 +3360,7 @@ JSON structure to return:
             const code = localStorage.getItem('jpgroupcode');
             if (code) {
                 await db.collection('groups').doc(code).update({
-                    [`members.${ currentUser.uid } `]: firebase.firestore.FieldValue.delete()
+                    [`members.${currentUser.uid} `]: firebase.firestore.FieldValue.delete()
                 });
                 localStorage.removeItem('jpgroupcode');
             }
@@ -3390,7 +3492,7 @@ JSON structure to return:
                     logger: m => {
                         if (m.status === 'recognizing text') {
                             const pct = Math.round(m.progress * 100);
-                            statusDiv.innerHTML = `🔍 Reading screenshot... ${ pct }% `;
+                            statusDiv.innerHTML = `🔍 Reading screenshot... ${pct}% `;
                         }
                     }
                 });
@@ -3502,8 +3604,8 @@ JSON structure to return:
                 statusDiv.textContent = '📤 Uploading screenshot...';
 
                 // Upload to Storage
-                const filename = `${ uid }_${ today }_${ Date.now() }.jpg`;
-                const fileRef = storage.ref().child(`anki - screenshots / ${ uid }/${filename}`);
+                const filename = `${uid}_${today}_${Date.now()}.jpg`;
+                const fileRef = storage.ref().child(`anki - screenshots / ${uid}/${filename}`);
                 const uploadTask = await fileRef.put(currentOcrFile);
                 const downloadURL = await uploadTask.ref.getDownloadURL();
 

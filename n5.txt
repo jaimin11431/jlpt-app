@@ -1,0 +1,658 @@
+JLPT SENSEI - N5 Grammar List
+See full grammar details at ​JLPTsensei.com/jlpt-n5-grammar-list
+#
+
+Grammar
+
+ぶんぽう
+
+Meaning
+
+1
+
+ちゃいけない
+
+cha ikenai / ja ikenai
+
+must not do (spoken Japanese)
+
+2
+
+だ・です
+
+da / desu
+
+to be (am, is, are, were, used to)
+
+3
+
+だけ
+
+dake
+
+only; just; as much as
+
+4
+
+だろう
+
+darou
+
+I think; it seems; probably; right?
+
+5
+
+で
+
+de
+
+in; at; on; by; with; via
+
+6
+
+でも
+
+demo
+
+but; however
+
+7
+
+でしょう
+
+deshou
+
+I think; it seems; probably; right?
+
+8
+
+どんな
+
+donna
+
+what kind of; what sort of
+
+9
+
+どうして
+
+doushite
+
+why; for what reason; how
+
+10
+
+どうやって
+
+douyatte
+
+how; in what way; by what means​
+
+11
+
+が
+
+ga
+
+subject marker; however; but
+
+12
+
+があります
+
+ga arimasu
+
+there is; is (non-living things)
+
+13
+
+がほしい
+
+ga hoshii
+
+to want something
+
+14
+
+がいます
+
+ga imasu
+
+there is; to be; is (living things)
+
+15
+
+ほうがいい
+
+hou ga ii
+
+had better; it'd be better to; should~
+
+16
+
+い-adjectives
+
+i-adjectives
+
+i-adjectives
+
+17
+
+一番
+
+ichiban
+
+the most; the best
+
+18
+
+一緒に
+
+issho ni
+
+together
+
+19
+
+いつも
+
+itsumo
+
+always; usually; habitually
+
+20
+
+じゃない
+
+janai / dewa nai
+
+to not be (am not; is not; are not)
+
+21
+
+か
+
+ka
+
+question particle
+
+22
+
+か～か
+
+ka~ka
+
+or
+
+23
+
+から
+
+kara
+
+because; since; from
+
+24
+
+方
+
+kata
+
+way of doing something; how to do
+
+25
+
+けど
+
+kedo
+
+but; however; although
+
+JLPTsensei.com/jlpt-n5-grammar-list
+
+26
+
+けれども
+
+keredo mo
+
+but; however; although
+
+27
+
+まだ
+
+mada
+
+still; not yet
+
+28
+
+まだ～ていません
+
+mada ~te imasen
+
+have not yet
+
+29
+
+まで
+
+made
+
+until ~; as far as ~; to (an extent)
+
+30
+
+前に
+
+mae ni
+
+before ~; in front of ~
+
+31
+
+ませんか
+
+masen ka
+
+would you; do you want to; shall we~
+
+32
+
+ましょう
+
+mashou
+
+let's ~; shall we ~
+
+33
+
+ましょうか
+
+mashouka
+
+shall I ~; used to offer help
+
+34
+
+も
+
+mo
+
+too; also; as well
+
+35
+
+もう
+
+mou
+
+already; anymore; again; other
+
+36
+
+な-adjectives
+
+na-adjectives
+
+na-adjectives
+
+37
+
+なあ
+
+naa
+
+confirmation; admiration, etc
+
+38
+
+ないで
+
+naide
+
+without doing~
+
+39
+
+ないでください
+
+naide kudasai
+
+please don't do
+
+40
+
+なくてもいい
+
+naku temo ii
+
+don't have to
+
+41
+
+なくちゃ
+
+nakucha
+
+must do; need to; gotta do
+
+42
+
+なくてはいけない
+
+nakute wa ikenai
+
+must do; need to do
+
+43
+
+なくてはならない
+
+nakute wa naranai
+
+must do; need to do
+
+44
+
+なる
+
+naru
+
+to become
+
+45
+
+んです
+
+ndesu
+
+to explain something; emphasis
+
+46
+
+ね
+
+ne
+
+isn't it? right? eh?
+
+47
+
+に
+
+ni
+
+destination particle; in; at; on; to
+
+48
+
+にいく
+
+ni iku
+
+go to do
+
+49
+
+にする
+
+ni suru
+
+to decide on
+
+50
+
+に/へ
+
+ni/e
+
+to (indicates direction / destination)
+
+51
+
+の
+
+no
+
+possessive particle
+
+52
+
+のです
+
+no desu
+
+to explain something; emphasis
+
+53
+
+のが下手
+
+no ga heta
+
+to be bad at doing something
+
+54
+
+のが上手
+
+no ga jouzu
+
+to be good at
+
+JLPTsensei.com/jlpt-n5-grammar-list
+
+55
+
+のが好き
+
+no ga suki
+
+to like doing something
+
+56
+
+の中で[A]が一番
+
+no naka de [A] ga
+ichiban
+
+out of this group, [A] is best
+
+57
+
+ので
+
+node
+
+because of; given that; since
+
+58
+
+を
+
+o / wo
+
+object marker particle
+
+59
+
+をください
+
+o kudasai
+
+please give me~
+
+60
+
+しかし
+
+shikashi
+
+but; however
+
+61
+
+すぎる
+
+sugiru
+
+too much
+
+62
+
+たことがある
+
+ta koto ga aru
+
+to have done something before
+
+63
+
+たい
+
+tai
+
+want to do something
+
+64
+
+たり～たり
+
+tari~tari
+
+do such things as A and B
+
+65
+
+てある
+
+te aru
+
+is/has been done (resulting state)
+
+66
+
+ている
+
+te iru
+
+ongoing action or current state
+
+67
+
+てから
+
+te kara
+
+after doing~
+
+68
+
+てください
+
+te kudasai
+
+please do
+
+69
+
+てはいけない
+
+te wa ikenai
+
+must not; may not; cannot
+
+70
+
+てもいいです
+
+temo ii desu
+
+is OK to..; is alright to..; may I..?
+
+71
+
+と
+
+to
+
+and; with; as; connecting particle
+
+72
+
+とき
+
+toki
+
+when; at this time
+
+73
+
+とても
+
+totemo
+
+very; awfully; exceedingly​
+
+74
+
+つもり
+
+tsumori
+
+plan to ~; intend to ~
+
+75
+
+は
+
+wa - topic marker
+
+topic marker
+
+76
+
+は〜より・・・です
+
+wa ~yori... desu
+
+[A] is more ~ than [B]
+
+77
+
+はどうですか
+
+wa dou desu ka
+
+how about; how is
+
+78
+
+や
+
+ya
+
+and; or; connecting particle
+
+79
+
+よ
+
+yo
+
+you know; emphasis (ending particle)
+
+80
+
+より～ほうが
+
+yori ~hou ga
+
+[A] is more than [B]
+
+JLPTsensei.com/jlpt-n5-grammar-list
+
+

@@ -1,6 +1,5 @@
 # Scratch / dev scripts
 *.py
-
 # PDFs (large, not needed for the web app)
 *.pdf
 
