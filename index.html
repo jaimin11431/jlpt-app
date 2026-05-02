@@ -119,17 +119,22 @@
         .tab-btn {
             background: none;
             border: none;
-            padding: 12px 4px;
-            font-size: 16px;
+            padding: 10px 8px;
+            font-size: 14px;
             font-weight: 500;
             color: #6B7280;
             cursor: pointer;
             border-bottom: 2px solid transparent;
+            white-space: nowrap;
+            line-height: 1.4;
+            vertical-align: middle;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         .tab-btn.active {
             color: #4F46E5;
             border-bottom-color: #4F46E5;
+            font-weight: 600;
         }
 
         /* ============================================
@@ -979,12 +984,12 @@
         </header>
 
         <!-- TABS -->
-        <div class="tab-nav" style="overflow-x:auto; white-space:nowrap;">
-            <button class="tab-btn active" id="tab-practice" onclick="switchTab('practice')">📖 Practice</button>
-            <button class="tab-btn" id="tab-today" onclick="switchTab('today')">📅 Today</button>
-            <button class="tab-btn" id="tab-statistics" onclick="switchTab('statistics')">📊 Statistics</button>
-            <button class="tab-btn" id="tab-group" onclick="switchTab('group')">👥 Group</button>
-            <button class="tab-btn" id="tab-submit" onclick="switchTab('submit')">📤 Submit</button>
+        <div class="tab-nav" style="overflow-x:auto; white-space:nowrap; align-items:center;">
+            <button class="tab-btn active" id="tab-practice" onclick="switchTab('practice')">Practice</button>
+            <button class="tab-btn" id="tab-today" onclick="switchTab('today')">Today</button>
+            <button class="tab-btn" id="tab-statistics" onclick="switchTab('statistics')">Statistics</button>
+            <button class="tab-btn" id="tab-group" onclick="switchTab('group')">Group</button>
+            <button class="tab-btn" id="tab-submit" onclick="switchTab('submit')">Submit</button>
         </div>
 
         <div class="container" id="practice-tab">
@@ -1208,10 +1213,10 @@
                 </div>
 
                 <div class="group-pills">
-                    <button class="group-pill active" onclick="switchGroupSubTab('today')">📅 Today</button>
-                    <button class="group-pill" onclick="switchGroupSubTab('leaderboard')">🏆 Leaderboard</button>
-                    <button class="group-pill" onclick="switchGroupSubTab('stats')">📊 Stats</button>
-                    <button class="group-pill" onclick="switchGroupSubTab('settings')">⚙ Settings</button>
+                    <button class="group-pill active" onclick="switchGroupSubTab('today')">Today</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('leaderboard')">Leaderboard</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('stats')">Stats</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('settings')">Settings</button>
                 </div>
 
                 <div id="group-sub-today">
@@ -1227,12 +1232,31 @@
                 </div>
 
                 <div id="group-sub-settings" style="display:none;">
+                    <div class="submit-card" id="leader-settings-panel" style="display:none;">
+                        <h3 style="margin-top:0;">Leader Controls</h3>
+                        <div style="margin-bottom:16px;">
+                            <label
+                                style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Penalty
+                                Per Missed Day (₹)</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="number" id="penalty-amount-input" min="0" step="10" value="50"
+                                    style="flex:1;padding:8px 12px;border:1px solid #D1D5DB;border-radius:8px;font-size:14px;">
+                                <button onclick="savePenaltyAmount()" class="btn-primary"
+                                    style="width:auto;padding:8px 16px;">Save</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label
+                                style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:8px;">Members</label>
+                            <div id="leader-member-list"></div>
+                        </div>
+                    </div>
                     <div class="submit-card">
-                        <h3>Group Settings</h3>
-                        <button class="btn-secondary" onclick="leaveGroup()" style="margin-top:16px;">Leave
+                        <h3 style="margin-top:0;">Your Options</h3>
+                        <button class="btn-secondary" onclick="leaveGroup()" style="width:100%;margin-bottom:8px;">Leave
                             Group</button>
                         <button class="btn-primary" id="btn-delete-group" onclick="deleteGroup()"
-                            style="margin-top:16px; background:#EF4444; display:none;">Delete Group</button>
+                            style="width:100%;background:#EF4444;display:none;">Delete Group</button>
                     </div>
                 </div>
             </div>
@@ -2734,10 +2758,66 @@ JSON structure to return:
                     </div>
 
                     <div style="text-align:center;font-size:13px;color:#9CA3AF;padding-bottom:8px;">
-                        ${bothDone ? '🌟 Amazing! Both tasks done. Your streak continues!' : (ankiDone || readingDone) ? '💪 Halfway there! Complete the remaining task.' : '🎯 Start with either task — every minute counts!'}
+                        ${bothDone ? 'Amazing! Both tasks done. Your streak continues!' : (ankiDone || readingDone) ? 'Halfway there! Complete the remaining task.' : 'Start with either task - every minute counts!'}
                     </div>`;
+
+                // Penalty card — async fetch after rendering tasks
+                loadTodayPenaltyCard();
             });
         }
+
+        async function loadTodayPenaltyCard() {
+            const code = localStorage.getItem('jpgroupcode');
+            const content = document.getElementById('today-tab-content');
+            if (!content) return;
+            // Remove old penalty card if exists
+            const old = document.getElementById('today-penalty-card');
+            if (old) old.remove();
+
+            if (!code || !currentUser) return;
+            try {
+                const groupDoc = await db.collection('groups').doc(code).get();
+                if (!groupDoc.exists) return;
+                const penaltyPerMiss = groupDoc.data().penaltyPerMiss ?? 50;
+                const createdAt = groupDoc.data().createdAt ? groupDoc.data().createdAt.toDate() : new Date();
+                const member = (groupDoc.data().members || {})[currentUser.uid];
+                const joinedAt = member && member.joinedAt ? member.joinedAt.toDate() : createdAt;
+
+                const snapshot = await db.collection('sessions').doc(currentUser.uid).collection('daily').get();
+                const docsMap = {};
+                snapshot.docs.forEach(d => { docsMap[d.id] = d.data(); });
+
+                let missedDays = 0;
+                const now = new Date();
+                for (let i = 1; i <= 90; i++) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - i);
+                    if (d < joinedAt) break;
+                    const ds = d.toISOString().split('T')[0];
+                    const dd = docsMap[ds];
+                    if (!(dd && dd.readingComplete && dd.ankiComplete)) missedDays++;
+                }
+
+                const owed = missedDays * penaltyPerMiss;
+                const card = document.createElement('div');
+                card.id = 'today-penalty-card';
+                card.style.cssText = 'margin-top:16px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;';
+                card.innerHTML = `
+                    <div style="text-align:center;">
+                        <div style="font-size:20px;font-weight:800;color:${owed > 0 ? '#DC2626' : '#059669'};">&#8377;${owed}</div>
+                        <div style="font-size:12px;color:#6B7280;margin-top:2px;">Your Penalty</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:20px;font-weight:800;color:#374151;">${missedDays}</div>
+                        <div style="font-size:12px;color:#6B7280;margin-top:2px;">Days Missed</div>
+                    </div>
+                    <div style="grid-column:1/-1;text-align:center;font-size:12px;color:#9CA3AF;border-top:1px solid #F3F4F6;padding-top:8px;margin-top:4px;">
+                        &#8377;${penaltyPerMiss} per missed day &bull; <span style="cursor:pointer;color:#4F46E5;text-decoration:underline;" onclick="switchTab('group');setTimeout(()=>switchGroupSubTab('leaderboard'),300);">View group leaderboard</span>
+                    </div>`;
+                content.appendChild(card);
+            } catch (e) { console.error('Penalty card error:', e); }
+        }
+
 
         // ============================================
         // GROUP TAB LOGIC
@@ -2842,12 +2922,64 @@ JSON structure to return:
             if (tabName === 'today') loadGroupToday();
             if (tabName === 'leaderboard') loadGroupLeaderboard();
             if (tabName === 'stats') loadGroupStats();
+            if (tabName === 'settings') loadGroupSettings();
         }
 
         function cleanupGroupListeners() {
             if (groupUnsubscribe) groupUnsubscribe();
             groupMembersUnsubscribe.forEach(unsub => unsub());
             groupMembersUnsubscribe = [];
+        }
+
+        async function loadGroupSettings() {
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+            const groupDoc = await db.collection('groups').doc(code).get();
+            if (!groupDoc.exists) return;
+            const isLeader = groupDoc.data().createdBy === currentUser.uid;
+            const penaltyPerMiss = groupDoc.data().penaltyPerMiss ?? 50;
+            const leaderPanel = document.getElementById('leader-settings-panel');
+            if (leaderPanel) leaderPanel.style.display = isLeader ? 'block' : 'none';
+            if (isLeader) {
+                const inp = document.getElementById('penalty-amount-input');
+                if (inp) inp.value = penaltyPerMiss;
+                // Render member list for leader
+                const members = groupDoc.data().members || {};
+                const listEl = document.getElementById('leader-member-list');
+                if (listEl) {
+                    listEl.innerHTML = Object.entries(members).map(([uid, m]) => {
+                        const isSelf = uid === currentUser.uid;
+                        const safeName = m.name.replace(/"/g, '&quot;');
+                        const removeBtn = isSelf
+                            ? '<span style="font-size:12px;color:#9CA3AF;">You</span>'
+                            : '<button onclick="removeMember(\'' + uid + '\',\'' + safeName + '\')" style="padding:4px 10px;background:#FEE2E2;color:#DC2626;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Remove</button>';
+                        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F3F4F6;">'
+                            + '<img src="' + (m.picture || '') + '" style="width:28px;height:28px;border-radius:50%;background:#E5E7EB;">'
+                            + '<span style="flex:1;font-size:14px;color:#111827;">' + m.name + '</span>'
+                            + removeBtn
+                            + '</div>';
+                    }).join('');
+                }
+            }
+        }
+
+        async function savePenaltyAmount() {
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+            const amount = parseInt(document.getElementById('penalty-amount-input').value) || 0;
+            await db.collection('groups').doc(code).update({ penaltyPerMiss: amount });
+            alert(`Penalty set to \u20b9${ amount } per missed day.`);
+        }
+
+        async function removeMember(uid, name) {
+            if (!confirm(`Remove ${ name } from the group ? `)) return;
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+            await db.collection('groups').doc(code).update({
+                [`members.${ uid } `]: firebase.firestore.FieldValue.delete()
+            });
+            loadGroupSettings();
+            loadGroupToday();
         }
 
         async function loadGroupToday() {
@@ -2875,8 +3007,8 @@ JSON structure to return:
                     const memberData = members[uid];
                     const cardDiv = document.createElement('div');
                     cardDiv.className = 'member-card';
-                    cardDiv.id = `member-card-${uid}`;
-                    cardDiv.innerHTML = `<div style="text-align:center;color:#6B7280;font-size:12px;">Loading ${memberData.name}...</div>`;
+                    cardDiv.id = `member - card - ${ uid } `;
+                    cardDiv.innerHTML = `<div style="text-align:center;color:#6B7280;font-size:12px;" > Loading ${ memberData.name }...</div> `;
                     container.appendChild(cardDiv);
 
                     const unsub = db.collection('sessions').doc(uid).collection('daily').doc(todayStr).onSnapshot(dailyDoc => {
@@ -2887,25 +3019,25 @@ JSON structure to return:
                         const bothDone = ankiDone && readingDone;
 
                         const ankiText = ankiDone
-                            ? `✅ ${data.ankiReviews || 0} reviews`
+                            ? `✅ ${ data.ankiReviews || 0 } reviews`
                             : `⏳ Pending`;
                         const readingText = readingDone
-                            ? `✅ ${data.readingMinutes || 0} min`
+                            ? `✅ ${ data.readingMinutes || 0 } min`
                             : data.readingMinutes > 0
-                                ? `⏳ ${data.readingMinutes}/30 min`
+                                ? `⏳ ${ data.readingMinutes } / 30 min`
                                 : `⏳ Pending`;
                         const statusBg = bothDone ? 'background:#D1FAE5;border-color:#34D399;' : 'background:#FFF7ED;border-color:#FCD34D;';
                         const statusColor = bothDone ? 'color:#059669;' : 'color:#D97706;';
-                        const statusMsg = bothDone ? '✅ All tasks complete!' : `⏳ Pending (deadline 12:10 AM)`;
+                        const statusMsg = bothDone ? '✅ All tasks complete!' : `⏳ Pending(deadline 12: 10 AM)`;
 
                         const flagHTML = (doc.data().flags && doc.data().flags[uid])
-                            ? `<div style="color:#EF4444; font-size:12px; margin-top:6px;">⚠️ ${doc.data().flags[uid].reason} (${doc.data().flags[uid].count}×)</div>`
+                            ? `<div style="color:#EF4444; font-size:12px; margin-top:6px;" >⚠️ ${ doc.data().flags[uid].reason }(${ doc.data().flags[uid].count }×)</div> `
                             : ``;
 
                         const readingPct = Math.min(100, Math.round((data.readingMinutes || 0) / 30 * 100));
 
                         cardDiv.innerHTML = `
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;" >
                                 <img src="${memberData.picture || ''}" style="width:36px;height:36px;border-radius:50%;background:#E5E7EB;flex-shrink:0;">
                                 <div style="font-weight:700;color:#111827;font-size:15px;flex-grow:1;">${memberData.name.split(' ')[0]}</div>
                                 <div style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;border:1.5px solid;${statusBg}${statusColor}">${bothDone ? '✅ Done' : '⏳ Pending'}</div>
@@ -2921,7 +3053,7 @@ JSON structure to return:
                                     ${data.readingMinutes > 0 && !readingDone ? '<div style="background:#E5E7EB;border-radius:3px;height:4px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + readingPct + '%;background:#F59E0B;border-radius:3px;"></div></div>' : ''}
                                 </div>
                             </div>
-                            ${flagHTML}
+                            ${ flagHTML }
                         `;
                     });
                     groupMembersUnsubscribe.push(unsub);
@@ -2933,106 +3065,125 @@ JSON structure to return:
             const code = localStorage.getItem('jpgroupcode');
             if (!code) return;
             const container = document.getElementById('group-leaderboard-content');
-            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Calculating leaderboard...</div>';
+            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Calculating...</div>';
 
             const groupDoc = await db.collection('groups').doc(code).get();
-            const members = groupDoc.data().members || {};
+            const groupData = groupDoc.data();
+            const members = groupData.members || {};
+            const penaltyPerMiss = groupData.penaltyPerMiss ?? 50;
+            const createdAt = groupData.createdAt ? groupData.createdAt.toDate() : new Date();
+            const now = new Date();
+            const daysRunning = Math.max(1, Math.floor((now - createdAt) / 86400000));
 
             let stats = [];
+            let totalFund = 0;
 
             for (const uid of Object.keys(members)) {
                 const member = members[uid];
                 const snapshot = await db.collection('sessions').doc(uid).collection('daily').get();
-                const docs = snapshot.docs.map(d => ({ date: d.id, ...d.data() })).sort((a, b) => new Date(b.date) - new Date(a.date));
+                const docsMap = {};
+                snapshot.docs.forEach(d => { docsMap[d.id] = d.data(); });
 
-                let readingMins = 0;
-                let readingCount = 0;
-                let ankiCount = 0;
-                let ankiReviews = 0;
-                let cpms = [];
-
-                docs.forEach(d => {
-                    if (d.readingComplete) { readingMins += (d.readingMinutes || 0); readingCount++; }
-                    if (d.ankiComplete) { ankiCount++; ankiReviews += (d.ankiReviews || 0); }
-                    if (d.cpm > 0) cpms.push(d.cpm);
-                });
-
-                const bestCPM = cpms.length > 0 ? Math.max(...cpms) : 0;
-                const avgCPM7 = cpms.slice(0, 7).reduce((a, b) => a + b, 0) / (Math.min(7, cpms.length) || 1);
-
+                // Count missed days: each past calendar day since group created or member joined
+                const joinedAt = member.joinedAt ? member.joinedAt.toDate() : createdAt;
+                let missedDays = 0;
                 let currentStreak = 0;
-                const today = new Date().toISOString().split('T')[0];
-                const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                let checkDate = new Date(now);
+                checkDate.setDate(checkDate.getDate() - 1); // start from yesterday
 
-                let checkDate = docs.length > 0 && (docs[0].date === today || docs[0].date === yesterday) ? new Date(docs[0].date) : null;
-                if (checkDate) {
-                    for (const d of docs) {
-                        if (d.date === checkDate.toISOString().split('T')[0] && d.readingComplete && d.ankiComplete) {
-                            currentStreak++;
-                            checkDate = new Date(checkDate - 86400000);
-                        } else { break; }
+                // Streak from today/yesterday backwards
+                const todayStr = getStudyDate().toISOString().split('T')[0];
+                const todayData = docsMap[todayStr];
+                if (todayData && todayData.readingComplete && todayData.ankiComplete) currentStreak++;
+
+                // Walk back 60 days max
+                for (let i = 1; i <= 60; i++) {
+                    const d = new Date(now);
+                    d.setDate(d.getDate() - i);
+                    if (d < joinedAt) break;
+                    const ds = d.toISOString().split('T')[0];
+                    const data = docsMap[ds];
+                    const bothDone = data && data.readingComplete && data.ankiComplete;
+                    if (!bothDone) { missedDays++; }
+                    if (i <= 30) { // streak only recent
+                        if (bothDone && (i === 1 || currentStreak === i - 1)) currentStreak = i;
                     }
                 }
 
-                const score = (readingMins / 60 * 2) + (ankiCount * 1.5) + (currentStreak * 0.5);
+                const owed = missedDays * penaltyPerMiss;
+                totalFund += owed;
 
-                stats.push({
-                    uid, name: member.name,
-                    score: score.toFixed(1),
-                    readingHrs: (readingMins / 60).toFixed(1),
-                    articles: readingCount,
-                    bestCPM, avgCPM7: avgCPM7.toFixed(1),
-                    ankiCount, ankiReviews, currentStreak
+                let readingMins = 0, ankiReviews = 0, cpms = [];
+                snapshot.docs.forEach(d => {
+                    const dd = d.data();
+                    if (dd.readingComplete) readingMins += (dd.readingMinutes || 0);
+                    if (dd.ankiComplete) ankiReviews += (dd.ankiReviews || 0);
+                    if (dd.cpm > 0) cpms.push(dd.cpm);
                 });
+
+                stats.push({ uid, name: member.name, picture: member.picture, missedDays, owed, currentStreak, readingMins, ankiReviews, bestCPM: cpms.length ? Math.max(...cpms) : 0 });
             }
 
-            stats.sort((a, b) => b.score - a.score);
-
-            let html = '<div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;margin-bottom:24px;">';
-            stats.slice(0, 3).forEach((s, idx) => {
-                const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : '🥉');
-                html += `
-                    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:${idx < 2 ? '1px solid #F3F4F6' : 'none'};">
-                        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:16px;">
-                            <span>${medal} ${s.name}</span>
-                            <span style="color:#4F46E5;">${s.score} pts</span>
-                        </div>
-                        <div style="font-size:13px;color:#6B7280;margin-top:4px;">
-                            📖 ${s.readingHrs} hrs reading | ⚡ Best: ${s.bestCPM} CPM | 🔥 ${s.currentStreak} day streak<br>
-                            📚 ${s.ankiReviews} Anki reviews across ${s.ankiCount} days
-                        </div>
+            // --- PENALTY SUMMARY CARDS ---
+            let html = `
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+                    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;text-align:center;">
+                        <div style="font-size:22px;font-weight:800;color:#D97706;">&#8377;${totalFund}</div>
+                        <div style="font-size:12px;color:#6B7280;margin-top:4px;">Total Fund</div>
                     </div>
-                `;
+                    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;text-align:center;">
+                        <div style="font-size:22px;font-weight:800;color:#374151;">&#8377;${penaltyPerMiss}</div>
+                        <div style="font-size:12px;color:#6B7280;margin-top:4px;">Per Missed Day</div>
+                    </div>
+                    <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:16px;text-align:center;">
+                        <div style="font-size:22px;font-weight:800;color:#374151;">${daysRunning}</div>
+                        <div style="font-size:12px;color:#6B7280;margin-top:4px;">Days Running</div>
+                    </div>
+                </div>
+
+                <!-- PENALTY TABLE -->
+                <div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:20px;">
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#F9FAFB;">
+                                <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;">#</th>
+                                <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;">Member</th>
+                                <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Missed</th>
+                                <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Owed</th>
+                                <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Streak</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+            stats.forEach((s, idx) => {
+                const owedColor = s.owed > 0 ? '#DC2626' : '#059669';
+                const owedBg = s.owed > 0 ? '#FEE2E2' : '#D1FAE5';
+                const streakTxt = s.currentStreak > 0 ? `&#128293; ${s.currentStreak}` : '&mdash;';
+                html += `
+                    <tr style="border-top:1px solid #F3F4F6;">
+                        <td style="padding:12px;color:#9CA3AF;font-size:13px;">${idx + 1}</td>
+                        <td style="padding:12px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <img src="${s.picture||''}" style="width:28px;height:28px;border-radius:50%;background:#E5E7EB;flex-shrink:0;">
+                                <span style="font-weight:600;color:#111827;font-size:14px;">${s.name}</span>
+                            </div>
+                        </td>
+                        <td style="padding:12px;text-align:center;font-weight:700;color:${s.missedDays > 0 ? '#DC2626' : '#059669'};font-size:14px;">${s.missedDays}</td>
+                        <td style="padding:12px;text-align:center;">
+                            <span style="padding:3px 10px;border-radius:20px;font-weight:700;font-size:13px;background:${owedBg};color:${owedColor};">&#8377;${s.owed}</span>
+                        </td>
+                        <td style="padding:12px;text-align:center;font-size:13px;font-weight:600;color:#374151;">${streakTxt}</td>
+                    </tr>`;
             });
-            html += '</div>';
 
-            html += '<div style="overflow-x:auto;"><table class="stat-table"><thead><tr><th>Stat</th>';
-            stats.forEach(s => html += `<th>${s.name.split(' ')[0]}</th>`);
-            html += '</tr></thead><tbody>';
-
-            const rows = [
-                { label: 'Reading Hours', key: 'readingHrs' },
-                { label: 'Articles Read', key: 'articles' },
-                { label: 'Best CPM', key: 'bestCPM' },
-                { label: 'Avg CPM (7d)', key: 'avgCPM7' },
-                { label: 'Anki Days', key: 'ankiCount' },
-                { label: 'Anki Reviews', key: 'ankiReviews' },
-                { label: 'Current Streak', key: 'currentStreak' }
-            ];
-
-            rows.forEach(r => {
-                html += `<tr><td>${r.label}</td>`;
-                const maxVal = Math.max(...stats.map(s => parseFloat(s[r.key])));
-                stats.forEach(s => {
-                    const isMax = parseFloat(s[r.key]) === maxVal && maxVal > 0;
-                    html += `<td style="${isMax ? 'color:#059669;font-weight:bold;background:#D1FAE5;' : ''}">${s[r.key]}</td>`;
-                });
-                html += `</tr>`;
-            });
-            html += '</tbody></table></div>';
+            html += `</tbody></table></div>
+                <div style="text-align:center;font-size:13px;color:#9CA3AF;padding:4px 0 16px;">
+                    Missing a day = &#8377;${penaltyPerMiss} penalty. Money goes to the party fund! &#127881;
+                </div>`;
 
             container.innerHTML = html;
         }
+
 
         async function loadGroupStats() {
             const container = document.getElementById('group-stats-content');
@@ -3054,18 +3205,18 @@ JSON structure to return:
                         const d = dailyDoc.exists ? dailyDoc.data() : {};
                         const ankiDone = d.ankiComplete || false;
                         const readingDone = d.readingComplete || false;
-                        const ankiTxt = ankiDone ? `✅ ${d.ankiReviews || 0} reviews` : '⏳ Pending';
-                        const readTxt = readingDone ? `✅ ${d.readingMinutes || 0} min` : (d.readingMinutes > 0 ? `⏳ ${d.readingMinutes}/30 min` : '⏳ Pending');
+                        const ankiTxt = ankiDone ? `✅ ${ d.ankiReviews || 0 } reviews` : '⏳ Pending';
+                        const readTxt = readingDone ? `✅ ${ d.readingMinutes || 0 } min` : (d.readingMinutes > 0 ? `⏳ ${ d.readingMinutes } / 30 min` : '⏳ Pending');
                         const both = ankiDone && readingDone;
-                        rows += `<tr>
+                        rows += `< tr >
                             <td style="font-weight:600;">${member.name.split(' ')[0]}</td>
                             <td style="${ankiDone ? 'color:#059669;' : 'color:#D97706;'}">${ankiTxt}</td>
                             <td style="${readingDone ? 'color:#059669;' : (d.readingMinutes > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')}">${readTxt}</td>
                             <td style="font-weight:700;${both ? 'color:#059669;' : 'color:#D97706;'}">${both ? '✅ Complete' : '⏳ Pending'}</td>
-                        </tr>`;
+                        </tr > `;
                     }
                     todayTableHtml = `
-                        <div class="submit-card" style="margin-bottom:20px;">
+                        < div class= "submit-card" style = "margin-bottom:20px;">
                             <h3 style="margin-top:0;">📅 Today's Progress (${displayDate})</h3>
                             <div style="overflow-x:auto;">
                                 <table class="stat-table">
@@ -3073,8 +3224,8 @@ JSON structure to return:
                                     <tbody>${rows}</tbody>
                                 </table>
                             </div>
-                        </div>`;
-                } catch(e) { console.error('Today progress error:', e); }
+                        </div> `;
+                } catch (e) { console.error('Today progress error:', e); }
             }
 
             // --- MONTHLY HEATMAP ---
@@ -3089,7 +3240,8 @@ JSON structure to return:
 
             let gridHtml = '<div class="heatmap-grid">';
             for (let i = 1; i <= daysInMonth; i++) {
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const dateStr = `${ year } - ${ String(month + 1).padStart(2, '0')
+                } -${ String(i).padStart(2, '0') } `;
                 const cellDate = new Date(year, month, i, 12, 0, 0);
                 const isFuture = cellDate > now;
                 let bg = '#E5E7EB';
@@ -3099,11 +3251,11 @@ JSON structure to return:
                     else if (data && (data.readingComplete || data.ankiComplete)) bg = '#F59E0B';
                     else bg = '#EF4444';
                 }
-                gridHtml += `<div class="heatmap-cell" style="background:${bg};" title="${dateStr}">${i}</div>`;
+                gridHtml += `< div class="heatmap-cell" style = "background:${bg};" title = "${dateStr}" > ${ i }</div> `;
             }
             gridHtml += '</div>';
 
-            container.innerHTML = todayTableHtml + `<div class="submit-card"><h3>Monthly Consistency</h3>${gridHtml}</div>`;
+            container.innerHTML = todayTableHtml + `< div class="submit-card" > <h3>Monthly Consistency</h3>${ gridHtml }</div> `;
         }
 
         async function leaveGroup() {
@@ -3111,7 +3263,7 @@ JSON structure to return:
             const code = localStorage.getItem('jpgroupcode');
             if (code) {
                 await db.collection('groups').doc(code).update({
-                    [`members.${currentUser.uid}`]: firebase.firestore.FieldValue.delete()
+                    [`members.${ currentUser.uid } `]: firebase.firestore.FieldValue.delete()
                 });
                 localStorage.removeItem('jpgroupcode');
             }
@@ -3190,13 +3342,13 @@ JSON structure to return:
             const area = document.getElementById('submit-result-area');
             area.style.display = 'block';
             area.innerHTML = `
-                <div class="submit-card" style="background:#ECFDF5; border-color:#34D399;">
+                    < div class="submit-card" style = "background:#ECFDF5; border-color:#34D399;" >
                     <h3 style="color:#059669; margin-top:0;">✅ Already submitted today!</h3>
                     <div style="margin-bottom:8px;"><b>Reviews recorded:</b> ${data.ankiReviews || 0}</div>
                     <div style="margin-bottom:16px;"><b>Submitted at:</b> ${data.ankiSubmittedAt ? data.ankiSubmittedAt.toDate().toLocaleTimeString() : 'Unknown'}</div>
                     <a href="${data.ankiScreenshotURL}" target="_blank" style="color:#059669; font-weight:600; text-decoration:underline;">View submitted screenshot</a>
                 </div>
-            `;
+                    `;
         }
 
         function handleAnkiImageSelect(event) {
@@ -3243,7 +3395,7 @@ JSON structure to return:
                     logger: m => {
                         if (m.status === 'recognizing text') {
                             const pct = Math.round(m.progress * 100);
-                            statusDiv.innerHTML = `🔍 Reading screenshot... ${pct}%`;
+                            statusDiv.innerHTML = `🔍 Reading screenshot... ${ pct }% `;
                         }
                     }
                 });
@@ -3302,7 +3454,7 @@ JSON structure to return:
             if (results.reviewsToday !== null && results.codeFound) {
                 const pass = results.reviewsToday >= 50;
                 area.innerHTML = `
-                    <div class="submit-card">
+                    < div class="submit-card" >
                         <h3 style="margin-top:0;">✅ Verification Successful</h3>
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:8px;"><b>Study time:</b> ${results.timeStudied ? results.timeStudied + ' min' : 'Unknown'}</div>
@@ -3312,10 +3464,10 @@ JSON structure to return:
                         <button class="btn-primary" onclick="submitAnkiSession(${results.reviewsToday}, true, null)" style="width:100%; background:#059669;">Submit & Save</button>
                         <div id="submit-loading-status" style="text-align:center; margin-top:12px; color:#4F46E5; font-weight:600;"></div>
                     </div>
-                `;
+                    `;
             } else if (results.reviewsToday !== null && !results.codeFound) {
                 area.innerHTML = `
-                    <div class="submit-card" style="border-color:#F59E0B;">
+                    < div class="submit-card" style = "border-color:#F59E0B;" >
                         <h3 style="margin-top:0; color:#D97706;">⚠️ Code Not Detected</h3>
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ❌ Not found</div>
@@ -3330,7 +3482,7 @@ JSON structure to return:
                 `;
             } else {
                 area.innerHTML = `
-                    <div class="submit-card" style="border-color:#EF4444;">
+                    < div class="submit-card" style = "border-color:#EF4444;" >
                         <h3 style="margin-top:0; color:#DC2626;">❌ Could Not Read Stats</h3>
                         <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">OCR could not detect review count. Please ensure image is clear and "Today" tab is selected.</p>
                         <div style="background:#F3F4F6; padding:8px; font-family:monospace; font-size:10px; max-height:100px; overflow-y:auto; margin-bottom:16px;">
@@ -3338,7 +3490,7 @@ JSON structure to return:
                         </div>
                         <button class="btn-primary" onclick="showUploadForm()" style="width:100%;">Try Again</button>
                     </div>
-                `;
+                    `;
             }
         }
 
@@ -3355,8 +3507,8 @@ JSON structure to return:
                 statusDiv.textContent = '📤 Uploading screenshot...';
 
                 // Upload to Storage
-                const filename = `${uid}_${today}_${Date.now()}.jpg`;
-                const fileRef = storage.ref().child(`anki-screenshots/${uid}/${filename}`);
+                const filename = `${ uid }_${ today }_${ Date.now() }.jpg`;
+                const fileRef = storage.ref().child(`anki - screenshots / ${ uid }/${filename}`);
                 const uploadTask = await fileRef.put(currentOcrFile);
                 const downloadURL = await uploadTask.ref.getDownloadURL();
 
