@@ -2194,6 +2194,7 @@
 
         async function callGeminiWithRetry(body, maxRetries = 3) {
             const delays = [5000, 15000, 30000]; // 5s, 15s, 30s
+            const fallbackKey = 'AIzaSyDUqKsRmUgoET30lSwRL4BkiXIOqnAyuFQ';
 
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
                 const response = await fetch(getGeminiUrl(), {
@@ -2215,7 +2216,32 @@
                     continue;
                 }
 
-                // Non-retryable or exhausted retries — throw with a clear message
+                // If we exhaust retries to Cloudflare, try the fallback API key directly
+                if (attempt === maxRetries) {
+                    await showCountdown(2, "Trying fallback API key...");
+                    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${fallbackKey}`;
+                    const fallbackResponse = await fetch(fallbackUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+
+                    if (fallbackResponse.ok) return fallbackResponse;
+
+                    // If fallback also fails, throw error based on fallback response
+                    let errorMsg = `Fallback API error ${fallbackResponse.status}.`;
+                    try {
+                        const errData = await fallbackResponse.json();
+                        if (errData && errData.error && errData.error.message) {
+                            errorMsg += ` Details: ${errData.error.message}`;
+                        }
+                    } catch (e) { }
+
+                    if (fallbackResponse.status === 429) errorMsg = 'Rate limit exceeded on all keys. ' + errorMsg;
+                    throw new Error(errorMsg);
+                }
+
+                // Non-retryable error on an early attempt
                 let errorMsg = `API error ${response.status}.`;
                 try {
                     const errData = await response.json();
@@ -2224,8 +2250,7 @@
                     }
                 } catch (e) { } // Ignore json parse errors here
 
-                if (response.status === 429) errorMsg = 'Rate limit exceeded. ' + errorMsg;
-                else if (response.status === 401) errorMsg = 'API key invalid. ' + errorMsg;
+                if (response.status === 401) errorMsg = 'API key invalid. ' + errorMsg;
                 else if (response.status === 403) errorMsg = 'Access denied. ' + errorMsg;
                 else if (response.status === 404) errorMsg = 'Model not found. ' + errorMsg;
                 throw new Error(errorMsg);
