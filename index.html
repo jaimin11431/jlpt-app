@@ -1522,21 +1522,6 @@
         }
 
         function getGeminiUrl() {
-            // TEMPORARY TEST: Ask for API key to test if Cloudflare is blocked
-            let tempKey = localStorage.getItem('test_gemini_key');
-            if (!tempKey) {
-                tempKey = prompt("TESTING CLOUDFLARE BAN:\nPlease paste your new Gemini API key here. It will only be saved in your browser.");
-                if (tempKey) {
-                    localStorage.setItem('test_gemini_key', tempKey);
-                }
-            }
-
-            if (tempKey && tempKey.trim() !== '') {
-                // Bypass Cloudflare and go straight to Google
-                return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${tempKey.trim()}`;
-            }
-
-            // Fallback to Cloudflare if they press cancel
             return `https://wild-frog-0a62.jaiminpandey5.workers.dev`;
         }
 
