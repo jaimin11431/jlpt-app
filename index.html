@@ -1078,6 +1078,7 @@
                     style="font-size:48px; font-weight:700; font-family:monospace; color:#1F2937; letter-spacing:2px;">
                     00:00.0
                 </div>
+                <div id="expected-time-hint" style="display:none; font-size:13px; color:#6B7280; margin-top:6px;"></div>
                 <div style="display:flex; gap:8px; justify-content:center; margin:12px 0;">
                     <button id="btn-start" onclick="startTimer()"
                         style="padding:8px 20px; background:#4F46E5; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px;">▶
@@ -1093,6 +1094,25 @@
                     style="max-height:120px; overflow-y:auto; text-align:left; font-size:13px; color:#6B7280;"></div>
                 <div id="speed-result"
                     style="display:none; margin-top:16px; background:#fff; border:1px solid #D1FAE5; border-radius:8px; padding:16px; text-align:left;">
+                </div>
+
+                <!-- MCQ Container -->
+                <div id="mcq-container"
+                    style="display:none; margin-top:20px; border:1px solid #E5E7EB; border-radius:12px; padding:20px; text-align:left;">
+                    <div style="font-size:15px; font-weight:600; color:#374151; margin-bottom:4px;">
+                        📝 Comprehension Check
+                    </div>
+                    <div style="font-size:13px; color:#6B7280; margin-bottom:16px;">
+                        Answer 2 out of 3 questions correctly to confirm your reading.
+                    </div>
+                    <div id="mcq-questions"></div>
+                    <div id="mcq-timer-warning" style="display:none; color:#EF4444; font-size:12px; margin-top:8px;">
+                    </div>
+                    <button id="mcq-submit-btn" onclick="submitMCQ()"
+                        style="margin-top:16px; padding:10px 24px; background:#4F46E5; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:15px; width:100%;">
+                        Submit Answers
+                    </button>
+                    <div id="mcq-result" style="display:none; margin-top:16px;"></div>
                 </div>
             </div>
 
@@ -1386,6 +1406,17 @@
         let currentMode = 'hard';
         let currentArticleData = null;
         let easyTapCount = 0;
+
+        // --- CPM Calculation Constants ---
+        const MIN_READ_SECONDS = 15;
+        const MAX_VALID_CPM = 900;
+        const MIN_VALID_CPM = 20;
+
+        // --- Reading Verifier & MCQ State ---
+        let readingVerifier = null;
+        let mcqShownAt = null;
+        let mcqAnswers = {};
+        let mcqData = null;
 
         // --- Engagement Tracking ---
         let furiganaToggleCount = 0;
@@ -1977,6 +2008,189 @@
             }
             loadingText.textContent = 'Generating your article...';
         }
+        class ReadingVerifier {
+            constructor(articleElement) {
+                this.article = articleElement;
+                this.maxScrollReached = 0;
+                this.activityEvents = [];
+                this.lastActivityTime = Date.now();
+                this.longestGapMs = 0;
+                this.lastEventTime = Date.now();
+                this._bound = {};
+
+                // Scroll depth tracking
+                this._bound.scroll = () => {
+                    const el = this.article;
+                    const scrollable = el.scrollHeight - el.clientHeight;
+                    const pct = scrollable > 0
+                        ? (el.scrollTop / scrollable) * 100
+                        : 100; // article fits on screen = 100% visible
+                    this.maxScrollReached = Math.max(this.maxScrollReached, pct);
+                    this._log('scroll');
+                };
+
+                // General activity tracking
+                ['click', 'touchstart', 'mousemove', 'keypress'].forEach(evt => {
+                    this._bound[evt] = () => this._log(evt);
+                    document.addEventListener(evt, this._bound[evt]);
+                });
+                this.article.addEventListener('scroll', this._bound.scroll);
+            }
+
+            _log(type) {
+                const now = Date.now();
+                const gap = now - this.lastEventTime;
+                if (gap > this.longestGapMs) this.longestGapMs = gap;
+                this.lastEventTime = now;
+                this.lastActivityTime = now;
+                this.activityEvents.push({ type, time: now });
+            }
+
+            // Call this to cleanly remove event listeners when done
+            destroy() {
+                ['click', 'touchstart', 'mousemove', 'keypress'].forEach(evt => {
+                    document.removeEventListener(evt, this._bound[evt]);
+                });
+                this.article.removeEventListener('scroll', this._bound.scroll);
+            }
+
+            getReport(articleCharacters) {
+                // If article fits on screen without scrolling, treat as 100% reached
+                const el = this.article;
+                const fitsOnScreen = el.scrollHeight <= el.clientHeight;
+                const effectiveScroll = fitsOnScreen ? 100 : this.maxScrollReached;
+
+                return {
+                    scrollDepthReached: Math.round(effectiveScroll),
+                    totalActivityEvents: this.activityEvents.length,
+                    longestInactiveSeconds: Math.round(this.longestGapMs / 1000),
+                    passesScrollCheck: effectiveScroll >= 80,
+                    passesActivityCheck: this.activityEvents.length >= Math.floor(articleCharacters / 50),
+                    passesInactivityCheck: (this.longestGapMs / 1000) <= 180
+                };
+            }
+        }
+
+        function initReadingVerifier() {
+            if (readingVerifier) readingVerifier.destroy();
+            const articleEl = document.getElementById('articleContent');
+            // If articleContent doesn't scroll itself, use window or a scrollable parent.
+            // Using window as fallback if scrollHeight is not significantly larger
+            readingVerifier = new ReadingVerifier(articleEl || document.body);
+        }
+
+        function calculateCPM(articleText, elapsedMs) {
+            const elapsedSeconds = elapsedMs / 1000;
+            const elapsedMinutes = elapsedMs / 60000;
+
+            // Count only Japanese characters (hiragana, katakana, kanji)
+            const characters = (articleText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g) || []).length;
+
+            // Guard 1 — timer stopped too early
+            if (elapsedSeconds < MIN_READ_SECONDS) {
+                return {
+                    valid: false,
+                    cpm: null,
+                    characters,
+                    elapsedSeconds,
+                    reason: `⚠️ Timer stopped after only ${Math.round(elapsedSeconds)}s. Minimum ${MIN_READ_SECONDS} seconds needed for a valid CPM score.`
+                };
+            }
+
+            const cpm = Math.round(characters / elapsedMinutes);
+
+            // Guard 2 — unrealistic CPM range
+            if (cpm > MAX_VALID_CPM) {
+                return {
+                    valid: false,
+                    cpm: null,
+                    characters,
+                    elapsedSeconds,
+                    reason: `⚠️ CPM of ${cpm} is unrealistically high. Did you stop the timer before finishing reading? Score not saved.`
+                };
+            }
+            if (cpm < MIN_VALID_CPM) {
+                return {
+                    valid: false,
+                    cpm: null,
+                    characters,
+                    elapsedSeconds,
+                    reason: `⚠️ CPM of ${cpm} is too low. Did you forget to stop the timer? Score not saved.`
+                };
+            }
+
+            // Guard 3 — expected reading time check
+            // A baseline N3 learner reads ~200 CPM
+            // If user stopped before 20% of expected time = very suspicious
+            const expectedSeconds = (characters / 200) * 60;
+            if (elapsedSeconds < expectedSeconds * 0.2) {
+                return {
+                    valid: false,
+                    cpm: null,
+                    characters,
+                    elapsedSeconds,
+                    expectedSeconds: Math.round(expectedSeconds),
+                    reason: `⚠️ Stopped after ${Math.round(elapsedSeconds)}s but expected reading time is ~${Math.round(expectedSeconds)}s. Score not saved — please time the full article.`
+                };
+            }
+
+            return {
+                valid: true,
+                cpm,
+                characters,
+                elapsedSeconds,
+                expectedSeconds: Math.round(expectedSeconds)
+            };
+        }
+
+        function getCPMLabel(cpm) {
+            if (cpm < 100) return { label: 'Beginner', color: '#EF4444' };
+            if (cpm < 200) return { label: 'N4 level', color: '#F59E0B' };
+            if (cpm < 350) return { label: 'N3 level 🎯', color: '#3B82F6' };
+            if (cpm < 500) return { label: 'N2 level', color: '#059669' };
+            if (cpm < 700) return { label: 'N1 level', color: '#7C3AED' };
+            return { label: 'Native speed', color: '#EC4899' };
+        }
+
+        function showExpectedReadingTime(articleText) {
+            const characters = (articleText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g) || []).length;
+            const expectedSeconds = Math.round((characters / 200) * 60);
+            const hint = document.getElementById('expected-time-hint');
+            if (hint) {
+                hint.textContent = `⏱ Expected reading time: ~${expectedSeconds}s at N3 pace`;
+                hint.style.display = 'block';
+            }
+        }
+
+        function getVerificationWarnings(report, cpm) {
+            const warnings = [];
+
+            if (!report.passesScrollCheck) {
+                warnings.push(
+                    `📜 Only scrolled ${report.scrollDepthReached}% of the article (minimum 80% required for full credit).`
+                );
+            }
+
+            if (!report.passesInactivityCheck) {
+                warnings.push(
+                    `😴 Inactivity of ${report.longestInactiveSeconds}s detected. Timer was running unattended.`
+                );
+            }
+
+            if (!report.passesActivityCheck) {
+                warnings.push(
+                    `👆 Very few reading interactions detected. Make sure you are actively reading.`
+                );
+            }
+
+            if (cpm > 400 && report.scrollDepthReached < 90) {
+                warnings.push(
+                    `⚡ High CPM (${cpm}) but article not fully scrolled — possible skim detected.`
+                );
+            }
+
+            return warnings;
+        }
 
         async function callGeminiWithRetry(body, maxRetries = 3) {
             const delays = [5000, 15000, 30000]; // 5s, 15s, 30s
@@ -2008,8 +2222,8 @@
                     if (errData && errData.error && errData.error.message) {
                         errorMsg += ` Details: ${errData.error.message}`;
                     }
-                } catch(e) {} // Ignore json parse errors here
-                
+                } catch (e) { } // Ignore json parse errors here
+
                 if (response.status === 429) errorMsg = 'Rate limit exceeded. ' + errorMsg;
                 else if (response.status === 401) errorMsg = 'API key invalid. ' + errorMsg;
                 else if (response.status === 403) errorMsg = 'Access denied. ' + errorMsg;
@@ -2048,6 +2262,21 @@ STRICT RULES:
 7. Use appropriate JLPT vocabulary for the level.
 8. Every sentence must feel like natural conversational Japanese.
 
+Also generate exactly 3 comprehension questions about the article.
+Rules for questions:
+1. Every question MUST reference a SPECIFIC detail from the article — a name, number, action, location, or time that was explicitly stated
+2. Do NOT ask about the general topic or theme
+3. Wrong answer options must be PLAUSIBLE in the article's context but factually incorrect based on the article text
+4. Questions must be written in Japanese at the same difficulty as the article
+5. Answer options should be short — 2 to 8 Japanese characters each
+6. Correct answer index is 0-based (0=first option, 1=second, etc.)
+
+Bad question example (do not do this):
+"この記事は何について話していますか？" — too general, guessable
+
+Good question example (do this):
+"たろうは何時に駅に着きましたか？" — specific fact from article
+
 Return ONLY a valid JSON object. No markdown. No backticks. No explanation. 
 Just the raw JSON starting with { and ending with }
 
@@ -2079,6 +2308,14 @@ JSON structure to return:
       "sentence_id": "s1",
       "example": "富士山に登ったことがある。",
       "explanation": "Expresses past experience — have done something before"
+    }
+  ],
+  "mcq": [
+    {
+      "question": "Question in Japanese referencing a SPECIFIC detail",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correct": 0,
+      "explanation": "Brief explanation in English of why this is correct"
     }
   ]
 }`;
@@ -2132,6 +2369,9 @@ JSON structure to return:
                 renderArticle();
                 updateSavedCount();
                 checkReadingCoverage(currentArticleData, kanji);
+
+                showExpectedReadingTime(currentArticleData.article);
+                initReadingVerifier();
 
                 // Play success sound when everything is visible
                 playSuccessSound();
@@ -2621,98 +2861,52 @@ JSON structure to return:
         function stopAndCalculate() {
             clearInterval(timerInterval);
             timerRunning = false;
-            const totalSeconds = timerElapsedMs / 1000;
 
             const articleText = currentArticleData ? currentArticleData.article : '';
-            const charCount = (articleText.match(/[\u3040-\u30FF\u4E00-\u9FFF]/g) || []).length;
+            const cpmResult = calculateCPM(articleText, timerElapsedMs);
 
-            const cpm = charCount > 0 && totalSeconds > 0
-                ? Math.round((charCount / totalSeconds) * 60 * 10) / 10
-                : 0;
+            const resultDiv = document.getElementById('speed-result');
+            resultDiv.style.display = 'block';
+
+            if (!cpmResult.valid) {
+                resultDiv.innerHTML = `
+                    <div style="background:#FEF2F2; border:1px solid #FCA5A5; border-radius:8px; padding:16px;">
+                        <div style="font-size:14px; color:#991B1B; font-weight:500;">
+                            ${cpmResult.reason}
+                        </div>
+                    </div>
+                `;
+                return; // Stop here, do not show MCQ or save
+            }
+
+            const cpm = cpmResult.cpm;
+            const charCount = cpmResult.characters;
+            const totalSeconds = cpmResult.elapsedSeconds;
+
+            const verifierReport = readingVerifier ? readingVerifier.getReport(charCount) : null;
+            const warnings = verifierReport ? getVerificationWarnings(verifierReport, cpm) : [];
+
+            let warningsHtml = '';
+            if (warnings.length > 0) {
+                warningsHtml = `
+                    <div style="margin-top:12px; background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; padding:12px; font-size:13px;">
+                        ${warnings.map(w => `<div style="margin-bottom:4px; color:#92400E;">${w}</div>`).join('')}
+                    </div>
+                `;
+            }
 
             const sessions = getAllSessions();
             const todaySessions = sessions.filter(s => s.date === new Date().toLocaleDateString('en-IN'));
             const todayBest = todaySessions.length > 0 ? Math.max(...todaySessions.map(s => s.cpm)) : 0;
             const allTimeBest = sessions.length > 0 ? Math.max(...sessions.map(s => s.cpm)) : 0;
 
-            // Snapshot current mode's time before saving
-            recordModeTime();
-            const dominantMode = Object.entries(modeTimings).sort((a, b) => b[1] - a[1])[0][0];
-
-            const session = {
-                timestamp: Date.now(),
-                date: new Date().toLocaleDateString('en-IN'),
-                totalChars: charCount,
-                totalSeconds: Math.round(totalSeconds),
-                cpm: cpm,
-                mode: currentMode || 'hard',
-                dominantMode: dominantMode,
-                modeTimings: {
-                    hard: Math.round(modeTimings.hard),
-                    normal: Math.round(modeTimings.normal),
-                    easy: Math.round(modeTimings.easy)
-                },
-                topic: topicSelect ? topicSelect.value : '',
-                lapTimes: lapCount,
-                furiganaToggleCount: furiganaToggleCount || 0,
-                romajiToggleCount: romajiToggleCount || 0,
-                furiganaRevealed: showingFurigana || false,
-                easyTapsCount: easyTapCount || 0
-            };
-            localStorage.setItem('jpsession_' + session.timestamp, JSON.stringify(session));
-
-            // Sync to Firebase for Group Leaderboard
-            if (currentUser) {
-                const todayStr = getStudyDate().toISOString().split('T')[0];
-                const dailyRef = db.collection('sessions').doc(currentUser.uid).collection('daily').doc(todayStr);
-                dailyRef.get().then(docSnapshot => {
-                    let bestCpm = cpm;
-                    let existingMins = 0;
-                    let existingFurigana = 0;
-                    let existingRomaji = 0;
-                    let existingHard = 0;
-                    let existingNormal = 0;
-                    let existingEasy = 0;
-                    const alreadyComplete = docSnapshot.exists && docSnapshot.data().readingComplete;
-                    if (docSnapshot.exists) {
-                        const d = docSnapshot.data();
-                        bestCpm = Math.max(cpm, d.cpm || 0);
-                        existingMins = d.readingMinutes || 0;
-                        existingFurigana = d.furiganaToggles || 0;
-                        existingRomaji = d.romajiToggles || 0;
-                        existingHard = d.timeHard || 0;
-                        existingNormal = d.timeNormal || 0;
-                        existingEasy = d.timeEasy || 0;
-                    }
-                    const newTotalMins = existingMins + Math.ceil(totalSeconds / 60);
-                    const isReadingComplete = alreadyComplete || newTotalMins >= 30;
-                    dailyRef.set({
-                        readingComplete: isReadingComplete,
-                        readingMinutes: newTotalMins,
-                        cpm: bestCpm,
-                        furiganaToggles: existingFurigana + (furiganaToggleCount || 0),
-                        romajiToggles: existingRomaji + (romajiToggleCount || 0),
-                        timeHard: existingHard + Math.round(modeTimings.hard || 0),
-                        timeNormal: existingNormal + Math.round(modeTimings.normal || 0),
-                        timeEasy: existingEasy + Math.round(modeTimings.easy || 0),
-                        dominantMode: dominantMode
-                    }, { merge: true }).then(() => loadTodayTab());
-                    if (!isReadingComplete && newTotalMins < 30) {
-                        const rem = 30 - newTotalMins;
-                        showWarning(`📖 ${newTotalMins} min recorded (${rem} more min needed to complete reading task)`);
-                    }
-                }).catch(err => console.error("Error saving to Firebase:", err));
-            }
-
-            let cpmColor = '#EF4444';
-            if (cpm >= 200) cpmColor = '#059669';
-            else if (cpm >= 150) cpmColor = '#3B82F6';
-            else if (cpm >= 80) cpmColor = '#F59E0B';
-
-            const resultDiv = document.getElementById('speed-result');
-            resultDiv.style.display = 'block';
+            const cpmLabel = getCPMLabel(cpm);
 
             // Build mode time bar string
+            recordModeTime();
+            const dominantMode = Object.entries(modeTimings).sort((a, b) => b[1] - a[1])[0][0];
+            const dominantModeLabel = dominantMode.charAt(0).toUpperCase() + dominantMode.slice(1);
+
             const totalTracked = modeTimings.hard + modeTimings.normal + modeTimings.easy || 1;
             const modePct = m => Math.round((modeTimings[m] / totalTracked) * 100);
             const modeBarHtml = `
@@ -2727,8 +2921,6 @@ JSON structure to return:
                     <span style="color:#F59E0B;">&#9632; Easy ${Math.round(modeTimings.easy)}s</span>
                 </div>`;
 
-            const dominantModeLabel = dominantMode.charAt(0).toUpperCase() + dominantMode.slice(1);
-
             resultDiv.innerHTML = `
                 <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">&#128214; Reading Speed Result</div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
@@ -2737,11 +2929,13 @@ JSON structure to return:
                     <span style="color:#6B7280;">Time taken:</span>
                     <span style="font-weight:600;">${Math.floor(totalSeconds / 60)}m ${Math.floor(totalSeconds % 60)}s</span>
                     <span style="color:#6B7280;">Reading speed:</span>
-                    <span style="font-weight:700;font-size:18px;color:${cpmColor};">${cpm} CPM</span>
+                    <span style="font-weight:700;font-size:18px;color:${cpmLabel.color};">${cpm} CPM <span style="font-size:13px;font-weight:600;color:${cpmLabel.color};opacity:0.8;">(${cpmLabel.label})</span></span>
                     <span style="color:#6B7280;">Today's best:</span>
                     <span style="font-weight:600;">${Math.max(cpm, todayBest)} CPM</span>
                     <span style="color:#6B7280;">All-time best:</span>
                     <span style="font-weight:600;">${Math.max(cpm, allTimeBest)} CPM</span>
+                    <span style="color:#6B7280;">Expected time:</span>
+                    <span style="font-weight:600; color:#4B5563;">~${cpmResult.expectedSeconds}s</span>
                     <span style="color:#6B7280;">Furigana toggles:</span>
                     <span style="font-weight:600;">${furiganaToggleCount}x</span>
                     <span style="color:#6B7280;">Romaji toggles:</span>
@@ -2749,12 +2943,229 @@ JSON structure to return:
                     <span style="color:#6B7280;">Main mode used:</span>
                     <span style="font-weight:600;">${dominantModeLabel}</span>
                 </div>
+                ${warningsHtml}
                 <div style="margin-top:10px;">
                     <div style="font-size:11px;color:#6B7280;margin-bottom:2px;">Time per mode:</div>
                     ${modeBarHtml}
                 </div>
-                <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">N3 exam target: 200+ CPM</div>
             `;
+
+            // Prepare session data object (to be saved later if MCQ passes)
+            const sessionDataToSave = {
+                cpm: cpm,
+                totalSeconds: totalSeconds,
+                charCount: charCount,
+                dominantMode: dominantMode,
+                report: verifierReport
+            };
+
+            // Call MCQ
+            if (currentArticleData && currentArticleData.mcq) {
+                showMCQ(currentArticleData.mcq, sessionDataToSave);
+            }
+        }
+
+        let pendingSessionData = null;
+
+        function showMCQ(mcqArray, sessionData) {
+            mcqData = mcqArray;
+            pendingSessionData = sessionData;
+            mcqShownAt = Date.now();
+            mcqAnswers = {};
+
+            const container = document.getElementById('mcq-questions');
+            container.innerHTML = '';
+            document.getElementById('mcq-timer-warning').style.display = 'none';
+            document.getElementById('mcq-result').style.display = 'none';
+            document.getElementById('mcq-submit-btn').style.display = 'block';
+
+            mcqArray.forEach((q, qi) => {
+                const qDiv = document.createElement('div');
+                qDiv.style.cssText = 'margin-bottom:20px;';
+                qDiv.innerHTML = `
+                    <div style="font-size:16px; font-weight:500; color:#1F2937; margin-bottom:10px; line-height:1.6;">
+                        ${qi + 1}. ${q.question}
+                    </div>
+                    <div id="options-${qi}">
+                        ${q.options.map((opt, oi) => `
+                        <div onclick="selectOption(${qi}, ${oi})" 
+                            id="opt-${qi}-${oi}"
+                            style="padding:10px 14px; margin-bottom:6px; border:2px solid #E5E7EB; border-radius:8px; cursor:pointer; font-size:15px; transition:all 0.15s ease;">
+                            ${opt}
+                        </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.appendChild(qDiv);
+            });
+
+            const mcqContainer = document.getElementById('mcq-container');
+            mcqContainer.style.display = 'block';
+            mcqContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        window.selectOption = function (questionIndex, optionIndex) {
+            mcqAnswers[questionIndex] = optionIndex;
+            const q = mcqData[questionIndex];
+            q.options.forEach((_, oi) => {
+                const el = document.getElementById(`opt-${questionIndex}-${oi}`);
+                if (el) {
+                    el.style.borderColor = oi === optionIndex ? '#4F46E5' : '#E5E7EB';
+                    el.style.background = oi === optionIndex ? '#EEF2FF' : '#fff';
+                }
+            });
+        };
+
+        window.submitMCQ = function () {
+            if (Object.keys(mcqAnswers).length < mcqData.length) {
+                document.getElementById('mcq-timer-warning').textContent = '⚠️ Please answer all questions before submitting.';
+                document.getElementById('mcq-timer-warning').style.display = 'block';
+                return;
+            }
+
+            const totalAnswerTimeSeconds = (Date.now() - mcqShownAt) / 1000;
+            if (totalAnswerTimeSeconds < 12) {
+                document.getElementById('mcq-timer-warning').textContent = '⚠️ Answered too quickly. Please read each question carefully.';
+                document.getElementById('mcq-timer-warning').style.display = 'block';
+                mcqAnswers = {};
+                mcqData.forEach((q, qi) => {
+                    q.options.forEach((_, oi) => {
+                        const el = document.getElementById(`opt-${qi}-${oi}`);
+                        if (el) {
+                            el.style.borderColor = '#E5E7EB';
+                            el.style.background = '#fff';
+                        }
+                    });
+                });
+                return;
+            }
+
+            let correct = 0;
+            mcqData.forEach((q, qi) => {
+                if (mcqAnswers[qi] === q.correct) correct++;
+            });
+
+            const passed = correct >= 2;
+
+            mcqData.forEach((q, qi) => {
+                const userAnswer = mcqAnswers[qi];
+                q.options.forEach((_, oi) => {
+                    const el = document.getElementById(`opt-${qi}-${oi}`);
+                    if (!el) return;
+                    if (oi === q.correct) {
+                        el.style.borderColor = '#059669';
+                        el.style.background = '#D1FAE5';
+                    } else if (oi === userAnswer && userAnswer !== q.correct) {
+                        el.style.borderColor = '#EF4444';
+                        el.style.background = '#FEE2E2';
+                    }
+                });
+            });
+
+            const resultDiv = document.getElementById('mcq-result');
+            resultDiv.style.display = 'block';
+
+            if (passed) {
+                resultDiv.innerHTML = `
+                    <div style="background:#D1FAE5; border:1px solid #6EE7B7; border-radius:8px; padding:16px;">
+                        <div style="font-size:16px; font-weight:600; color:#065F46;">
+                        ✅ ${correct}/3 correct — Reading confirmed!
+                        </div>
+                        <div style="font-size:13px; color:#047857; margin-top:4px;">
+                        Session saved. Your CPM and stats have been recorded.
+                        </div>
+                    </div>
+                `;
+                document.getElementById('mcq-submit-btn').style.display = 'none';
+                saveFinalSession(pendingSessionData, correct);
+            } else {
+                resultDiv.innerHTML = `
+                    <div style="background:#FEE2E2; border:1px solid #FCA5A5; border-radius:8px; padding:16px;">
+                        <div style="font-size:16px; font-weight:600; color:#991B1B;">
+                        ❌ ${correct}/3 correct — Need 2/3 minimum
+                        </div>
+                        <div style="font-size:13px; color:#B91C1C; margin-top:4px;">
+                        Session not saved. Read the article again and retry.
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        function saveFinalSession(data, mcqScore) {
+            const session = {
+                timestamp: Date.now(),
+                date: new Date().toLocaleDateString('en-IN'),
+                totalChars: data.charCount,
+                totalSeconds: Math.round(data.totalSeconds),
+                cpm: data.cpm,
+                mode: currentMode || 'hard',
+                dominantMode: data.dominantMode,
+                modeTimings: {
+                    hard: Math.round(modeTimings.hard),
+                    normal: Math.round(modeTimings.normal),
+                    easy: Math.round(modeTimings.easy)
+                },
+                topic: topicSelect ? topicSelect.value : '',
+                lapTimes: lapCount,
+                furiganaToggleCount: furiganaToggleCount || 0,
+                romajiToggleCount: romajiToggleCount || 0,
+                furiganaRevealed: showingFurigana || false,
+                easyTapsCount: easyTapCount || 0,
+                scrollDepth: data.report ? data.report.scrollDepthReached : 0,
+                mcqScore: mcqScore
+            };
+            localStorage.setItem('jpsession_' + session.timestamp, JSON.stringify(session));
+
+            if (currentUser) {
+                const todayStr = getStudyDate().toISOString().split('T')[0];
+                const dailyRef = db.collection('sessions').doc(currentUser.uid).collection('daily').doc(todayStr);
+                dailyRef.get().then(docSnapshot => {
+                    let bestCpm = data.cpm;
+                    let existingMins = 0;
+                    let existingFurigana = 0;
+                    let existingRomaji = 0;
+                    let existingHard = 0;
+                    let existingNormal = 0;
+                    let existingEasy = 0;
+                    const alreadyComplete = docSnapshot.exists && docSnapshot.data().readingComplete;
+                    if (docSnapshot.exists) {
+                        const d = docSnapshot.data();
+                        bestCpm = Math.max(data.cpm, d.cpm || 0);
+                        existingMins = d.readingMinutes || 0;
+                        existingFurigana = d.furiganaToggles || 0;
+                        existingRomaji = d.romajiToggles || 0;
+                        existingHard = d.timeHard || 0;
+                        existingNormal = d.timeNormal || 0;
+                        existingEasy = d.timeEasy || 0;
+                    }
+                    const newTotalMins = existingMins + Math.ceil(data.totalSeconds / 60);
+                    const isReadingComplete = alreadyComplete || newTotalMins >= 30;
+                    dailyRef.set({
+                        readingComplete: isReadingComplete,
+                        readingMinutes: newTotalMins,
+                        cpm: bestCpm,
+                        furiganaToggles: existingFurigana + (furiganaToggleCount || 0),
+                        romajiToggles: existingRomaji + (romajiToggleCount || 0),
+                        timeHard: existingHard + Math.round(modeTimings.hard || 0),
+                        timeNormal: existingNormal + Math.round(modeTimings.normal || 0),
+                        timeEasy: existingEasy + Math.round(modeTimings.easy || 0),
+                        dominantMode: data.dominantMode
+                    }, { merge: true }).then(() => loadTodayTab());
+                    if (!isReadingComplete && newTotalMins < 30) {
+                        const rem = 30 - newTotalMins;
+                        showWarning(`📖 ${newTotalMins} min recorded (${rem} more min needed to complete reading task)`);
+                    }
+                }).catch(err => console.error("Error saving to Firebase:", err));
+            }
+
+            // Reset verifier so it doesn't double track
+            if (readingVerifier) {
+                readingVerifier.destroy();
+                readingVerifier = null;
+            }
+            mcqData = null;
+            mcqAnswers = {};
         }
 
         function resetTimer() {
@@ -3708,6 +4119,33 @@ JSON structure to return:
             });
         }
 
+        async function hashScreenshot(imageFile) {
+            const buffer = await imageFile.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function checkScreenshotDuplicate(imageFile, userId) {
+            const hash = await hashScreenshot(imageFile);
+            
+            const stored = localStorage.getItem(`ankiHashes_${userId}`);
+            const usedHashes = stored ? JSON.parse(stored) : [];
+            
+            if (usedHashes.includes(hash)) {
+                return { 
+                    isDuplicate: true,
+                    hash,
+                    message: '⚠️ This screenshot has already been submitted before. Please take a fresh screenshot of today\'s Anki stats.'
+                };
+            }
+            
+            usedHashes.push(hash);
+            localStorage.setItem(`ankiHashes_${userId}`, JSON.stringify(usedHashes));
+            
+            return { isDuplicate: false, hash };
+        }
+
         async function startOcrAnalysis() {
             if (!currentOcrFile) return alert("Please select an image first.");
             const btn = document.getElementById('btn-analyse-screenshot');
@@ -3715,9 +4153,21 @@ JSON structure to return:
 
             btn.disabled = true;
             statusDiv.style.display = 'block';
-            statusDiv.innerHTML = '🔍 Initializing OCR Engine...';
+            statusDiv.innerHTML = '🔍 Checking image...';
 
             try {
+                // Duplicate checking
+                const userId = currentUser ? currentUser.uid : 'anonymous';
+                const dupCheck = await checkScreenshotDuplicate(currentOcrFile, userId);
+                if (dupCheck.isDuplicate) {
+                    statusDiv.innerHTML = `<span style="color:#EF4444;">${dupCheck.message}</span>`;
+                    document.getElementById('anki-file-input').value = '';
+                    currentOcrFile = null;
+                    return;
+                }
+
+                statusDiv.innerHTML = '🔍 Initializing OCR Engine...';
+
                 const { createWorker } = Tesseract;
                 const worker = await createWorker('eng+jpn', 1, {
                     logger: m => {
