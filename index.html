@@ -3205,26 +3205,21 @@ JSON structure to return:
                         const d = dailyDoc.exists ? dailyDoc.data() : {};
                         const ankiDone = d.ankiComplete || false;
                         const readingDone = d.readingComplete || false;
-                        const ankiTxt = ankiDone ? `✅ ${ d.ankiReviews || 0 } reviews` : '⏳ Pending';
-                        const readTxt = readingDone ? `✅ ${ d.readingMinutes || 0 } min` : (d.readingMinutes > 0 ? `⏳ ${ d.readingMinutes } / 30 min` : '⏳ Pending');
+                        const ankiTxt = ankiDone ? ('&#10003; ' + (d.ankiReviews || 0) + ' reviews') : 'Pending';
+                        const readTxt = readingDone ? ('&#10003; ' + (d.readingMinutes || 0) + ' min') : (d.readingMinutes > 0 ? ((d.readingMinutes || 0) + '/30 min') : 'Pending');
                         const both = ankiDone && readingDone;
-                        rows += `< tr >
-                            <td style="font-weight:600;">${member.name.split(' ')[0]}</td>
-                            <td style="${ankiDone ? 'color:#059669;' : 'color:#D97706;'}">${ankiTxt}</td>
-                            <td style="${readingDone ? 'color:#059669;' : (d.readingMinutes > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')}">${readTxt}</td>
-                            <td style="font-weight:700;${both ? 'color:#059669;' : 'color:#D97706;'}">${both ? '✅ Complete' : '⏳ Pending'}</td>
-                        </tr > `;
+                        rows += '<tr>';
+                        rows += '<td style="font-weight:600;">' + member.name.split(' ')[0] + '</td>';
+                        rows += '<td style="' + (ankiDone ? 'color:#059669;' : 'color:#D97706;') + '">' + ankiTxt + '</td>';
+                        rows += '<td style="' + (readingDone ? 'color:#059669;' : (d.readingMinutes > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')) + '">' + readTxt + '</td>';
+                        rows += '<td style="font-weight:700;' + (both ? 'color:#059669;' : 'color:#D97706;') + '">' + (both ? '&#10003; Complete' : 'Pending') + '</td>';
+                        rows += '</tr>';
                     }
-                    todayTableHtml = `
-                        < div class= "submit-card" style = "margin-bottom:20px;">
-                            <h3 style="margin-top:0;">📅 Today's Progress (${displayDate})</h3>
-                            <div style="overflow-x:auto;">
-                                <table class="stat-table">
-                                    <thead><tr><th>Member</th><th>📚 Anki</th><th>📖 Reading</th><th>Status</th></tr></thead>
-                                    <tbody>${rows}</tbody>
-                                </table>
-                            </div>
-                        </div> `;
+                    todayTableHtml = '<div class="submit-card" style="margin-bottom:20px;">';
+                    todayTableHtml += '<h3 style="margin-top:0;">Today\'s Progress (' + displayDate + ')</h3>';
+                    todayTableHtml += '<div style="overflow-x:auto;">';
+                    todayTableHtml += '<table class="stat-table"><thead><tr><th>Member</th><th>Anki</th><th>Reading</th><th>Status</th></tr></thead>';
+                    todayTableHtml += '<tbody>' + rows + '</tbody></table></div></div>';
                 } catch (e) { console.error('Today progress error:', e); }
             }
 
@@ -3240,8 +3235,7 @@ JSON structure to return:
 
             let gridHtml = '<div class="heatmap-grid">';
             for (let i = 1; i <= daysInMonth; i++) {
-                const dateStr = `${ year } - ${ String(month + 1).padStart(2, '0')
-                } -${ String(i).padStart(2, '0') } `;
+                const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(i).padStart(2, '0');
                 const cellDate = new Date(year, month, i, 12, 0, 0);
                 const isFuture = cellDate > now;
                 let bg = '#E5E7EB';
@@ -3251,12 +3245,13 @@ JSON structure to return:
                     else if (data && (data.readingComplete || data.ankiComplete)) bg = '#F59E0B';
                     else bg = '#EF4444';
                 }
-                gridHtml += `< div class="heatmap-cell" style = "background:${bg};" title = "${dateStr}" > ${ i }</div> `;
+                gridHtml += '<div class="heatmap-cell" style="background:' + bg + ';" title="' + dateStr + '">' + i + '</div>';
             }
             gridHtml += '</div>';
 
-            container.innerHTML = todayTableHtml + `< div class="submit-card" > <h3>Monthly Consistency</h3>${ gridHtml }</div> `;
+            container.innerHTML = todayTableHtml + '<div class="submit-card"><h3>Monthly Consistency</h3>' + gridHtml + '</div>';
         }
+
 
         async function leaveGroup() {
             if (!confirm("Leave this group?")) return;
