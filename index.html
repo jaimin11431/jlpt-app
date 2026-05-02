@@ -1477,9 +1477,8 @@
             // Select a random key from the pool
             return fallbackKeys[Math.floor(Math.random() * fallbackKeys.length)];
         }
-        // Use gemini-2.5-flash — confirmed available from the API models list
         function getGeminiUrl() {
-            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${getApiKey()}`;
+            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${getApiKey()}`;
         }
 
         // ============================================
