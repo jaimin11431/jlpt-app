@@ -1380,9 +1380,30 @@
         // GLOBAL STATE
         let currentMode = 'hard';
         let currentArticleData = null;
-        let showingFurigana = false;
-        let showingRomaji = false;
         let easyTapCount = 0;
+
+        // --- Engagement Tracking ---
+        let furiganaToggleCount = 0;
+        let romajiToggleCount = 0;
+        let modeTimings = { hard: 0, normal: 0, easy: 0 };
+        let modeLastSwitchTime = null;  // timestamp when current mode started
+
+        function recordModeTime() {
+            if (modeLastSwitchTime !== null) {
+                const elapsed = (Date.now() - modeLastSwitchTime) / 1000;
+                if (modeTimings[currentMode] !== undefined) {
+                    modeTimings[currentMode] += elapsed;
+                }
+            }
+            modeLastSwitchTime = Date.now();
+        }
+
+        function resetEngagementTracking() {
+            furiganaToggleCount = 0;
+            romajiToggleCount = 0;
+            modeTimings = { hard: 0, normal: 0, easy: 0 };
+            modeLastSwitchTime = null;
+        }
 
         // Stopwatch Variables
         let timerInterval = null;
@@ -1677,6 +1698,9 @@
             const topic = topicSelect.value;
             const level = grammarLevelSelect.value;
             const groupIndex = parseInt(grammarGroupSelect.value, 10);
+            
+            resetEngagementTracking();
+            modeLastSwitchTime = Date.now();
             await generateArticle(kanji, topic, level, groupIndex);
         }
 
@@ -1787,6 +1811,9 @@
             };
 
             clearMessages();
+            resetEngagementTracking();
+            modeLastSwitchTime = Date.now();
+            
             modeSelector.style.display = 'flex';
             modeButtons.forEach(btn => btn.classList.remove('active'));
             modeButtons[1].classList.add('active'); // NORMAL mode
@@ -1803,6 +1830,7 @@
         }
 
         function handleModeChange(e) {
+            recordModeTime(); // log time spent in previous mode
             modeButtons.forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
             currentMode = e.target.dataset.mode;
@@ -1832,7 +1860,13 @@
                 timestamp: new Date().toISOString(),
                 topic: topicSelect.value,
                 grammarPattern: grammarLevelSelect.value, // Using level instead of removed grammarInput
-                articleData: currentArticleData
+                articleData: currentArticleData,
+                metrics: {
+                    furiganaToggles: furiganaToggleCount,
+                    romajiToggles: romajiToggleCount,
+                    modeTimings: modeTimings,
+                    easyTaps: easyTapCount
+                }
             });
 
             localStorage.setItem(key, value);
@@ -1862,6 +1896,7 @@
                     contentDiv.innerHTML = `
                         <div class="saved-article-topic">${item.topic}</div>
                         <div class="saved-article-time">${formatted}</div>
+                        ${item.metrics ? `<div style="font-size:11px; color:#6B7280;">Metrics: F:${item.metrics.furiganaToggles} | R:${item.metrics.romajiToggles} | Taps:${item.metrics.easyTaps}</div>` : ''}
                     `;
                     contentDiv.addEventListener('click', () => {
                         currentArticleData = item.articleData;
@@ -2269,6 +2304,7 @@ JSON structure to return:
             furiganaBtn.className = 'btn-secondary';
             furiganaBtn.textContent = 'Enable Hover Furigana';
             furiganaBtn.addEventListener('click', () => {
+                furiganaToggleCount++;
                 showingFurigana = !showingFurigana;
                 furiganaBtn.textContent = showingFurigana ? 'Disable Hover Furigana' : 'Enable Hover Furigana';
                 if (showingFurigana) {
@@ -2282,6 +2318,7 @@ JSON structure to return:
             romajiBtn.className = 'btn-tertiary';
             romajiBtn.textContent = 'Show Romaji ▾';
             romajiBtn.addEventListener('click', () => {
+                romajiToggleCount++;
                 showingRomaji = !showingRomaji;
                 romajiBtn.textContent = showingRomaji ? 'Hide Romaji' : 'Show Romaji ▾';
                 renderArticleContent();
@@ -2600,15 +2637,27 @@ JSON structure to return:
             const todayBest = todaySessions.length > 0 ? Math.max(...todaySessions.map(s => s.cpm)) : 0;
             const allTimeBest = sessions.length > 0 ? Math.max(...sessions.map(s => s.cpm)) : 0;
 
+            // Snapshot current mode's time before saving
+            recordModeTime();
+            const dominantMode = Object.entries(modeTimings).sort((a, b) => b[1] - a[1])[0][0];
+
             const session = {
                 timestamp: Date.now(),
                 date: new Date().toLocaleDateString('en-IN'),
                 totalChars: charCount,
                 totalSeconds: Math.round(totalSeconds),
                 cpm: cpm,
-                mode: currentMode || 'NORMAL',
+                mode: currentMode || 'hard',
+                dominantMode: dominantMode,
+                modeTimings: {
+                    hard: Math.round(modeTimings.hard),
+                    normal: Math.round(modeTimings.normal),
+                    easy: Math.round(modeTimings.easy)
+                },
                 topic: topicSelect ? topicSelect.value : '',
                 lapTimes: lapCount,
+                furiganaToggleCount: furiganaToggleCount || 0,
+                romajiToggleCount: romajiToggleCount || 0,
                 furiganaRevealed: showingFurigana || false,
                 easyTapsCount: easyTapCount || 0
             };
@@ -2647,21 +2696,49 @@ JSON structure to return:
 
             const resultDiv = document.getElementById('speed-result');
             resultDiv.style.display = 'block';
-            resultDiv.innerHTML = `
-                <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📖 Reading Speed Result</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
-                <span style="color:#6B7280;">Total characters:</span>
-                <span style="font-weight:600;">${charCount}</span>
-                <span style="color:#6B7280;">Time taken:</span>
-                <span style="font-weight:600;">${Math.floor(totalSeconds / 60)}m ${Math.floor(totalSeconds % 60)}s</span>
-                <span style="color:#6B7280;">Reading speed:</span>
-                <span style="font-weight:700;font-size:18px;color:${cpmColor};">${cpm} CPM</span>
-                <span style="color:#6B7280;">Today's best:</span>
-                <span style="font-weight:600;">${Math.max(cpm, todayBest)} CPM</span>
-                <span style="color:#6B7280;">All-time best:</span>
-                <span style="font-weight:600;">${Math.max(cpm, allTimeBest)} CPM</span>
+
+            // Build mode time bar string
+            const totalTracked = modeTimings.hard + modeTimings.normal + modeTimings.easy || 1;
+            const modePct = m => Math.round((modeTimings[m] / totalTracked) * 100);
+            const modeBarHtml = `
+                <div style="display:flex;gap:3px;height:8px;border-radius:4px;overflow:hidden;margin-top:4px;">
+                    <div style="width:${modePct('hard')}%;background:#4F46E5;" title="Hard: ${Math.round(modeTimings.hard)}s"></div>
+                    <div style="width:${modePct('normal')}%;background:#059669;" title="Normal: ${Math.round(modeTimings.normal)}s"></div>
+                    <div style="width:${modePct('easy')}%;background:#F59E0B;" title="Easy: ${Math.round(modeTimings.easy)}s"></div>
                 </div>
-                <div style="margin-top:10px;font-size:11px;color:#9CA3AF;">N3 exam target: 200+ CPM</div>
+                <div style="display:flex;gap:10px;font-size:10px;color:#9CA3AF;margin-top:3px;">
+                    <span style="color:#4F46E5;">&#9632; Hard ${Math.round(modeTimings.hard)}s</span>
+                    <span style="color:#059669;">&#9632; Normal ${Math.round(modeTimings.normal)}s</span>
+                    <span style="color:#F59E0B;">&#9632; Easy ${Math.round(modeTimings.easy)}s</span>
+                </div>`;
+
+            const dominantModeLabel = dominantMode.charAt(0).toUpperCase() + dominantMode.slice(1);
+
+            resultDiv.innerHTML = `
+                <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">&#128214; Reading Speed Result</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:13px;">
+                    <span style="color:#6B7280;">Total characters:</span>
+                    <span style="font-weight:600;">${charCount}</span>
+                    <span style="color:#6B7280;">Time taken:</span>
+                    <span style="font-weight:600;">${Math.floor(totalSeconds / 60)}m ${Math.floor(totalSeconds % 60)}s</span>
+                    <span style="color:#6B7280;">Reading speed:</span>
+                    <span style="font-weight:700;font-size:18px;color:${cpmColor};">${cpm} CPM</span>
+                    <span style="color:#6B7280;">Today's best:</span>
+                    <span style="font-weight:600;">${Math.max(cpm, todayBest)} CPM</span>
+                    <span style="color:#6B7280;">All-time best:</span>
+                    <span style="font-weight:600;">${Math.max(cpm, allTimeBest)} CPM</span>
+                    <span style="color:#6B7280;">Furigana toggles:</span>
+                    <span style="font-weight:600;">${furiganaToggleCount}x</span>
+                    <span style="color:#6B7280;">Romaji toggles:</span>
+                    <span style="font-weight:600;">${romajiToggleCount}x</span>
+                    <span style="color:#6B7280;">Main mode used:</span>
+                    <span style="font-weight:600;">${dominantModeLabel}</span>
+                </div>
+                <div style="margin-top:10px;">
+                    <div style="font-size:11px;color:#6B7280;margin-bottom:2px;">Time per mode:</div>
+                    ${modeBarHtml}
+                </div>
+                <div style="margin-top:8px;font-size:11px;color:#9CA3AF;">N3 exam target: 200+ CPM</div>
             `;
         }
 
