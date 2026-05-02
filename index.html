@@ -1113,7 +1113,7 @@
                 <div class="sentence-counter" id="sentenceCounter"></div>
                 <div id="articleContent"></div>
             </div>
-            
+
             <div id="readingCoveragePanel" style="display: none;"></div>
 
             <!-- ============================================
@@ -1504,7 +1504,7 @@
             return fallbackKeys[Math.floor(Math.random() * fallbackKeys.length)];
         }
         function getGeminiUrl() {
-            return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${getApiKey()}`;
+            return `https://wild-frog-0a62.jaiminpandey5.workers.dev`;
         }
 
         // ============================================
@@ -1703,7 +1703,7 @@
             const topic = topicSelect.value;
             const level = grammarLevelSelect.value;
             const groupIndex = parseInt(grammarGroupSelect.value, 10);
-            
+
             resetEngagementTracking();
             modeLastSwitchTime = Date.now();
             await generateArticle(kanji, topic, level, groupIndex);
@@ -1818,7 +1818,7 @@
             clearMessages();
             resetEngagementTracking();
             modeLastSwitchTime = Date.now();
-            
+
             modeSelector.style.display = 'flex';
             modeButtons.forEach(btn => btn.classList.remove('active'));
             modeButtons[1].classList.add('active'); // NORMAL mode
@@ -2245,7 +2245,7 @@ JSON structure to return:
                         </div>
                         <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
                 `;
-                
+
                 missingReadings.forEach(mr => {
                     html += `
                         <div style="background:#fff; border:1px solid #FCD34D; padding:4px 8px; border-radius:4px; font-size:13px; color:#B45309;">
@@ -3413,7 +3413,7 @@ JSON structure to return:
                     </div>
                 `;
                 document.body.insertAdjacentHTML('beforeend', html);
-            } catch(e) { console.error('Error showing stats modal', e); }
+            } catch (e) { console.error('Error showing stats modal', e); }
         }
 
         async function loadGroupIndividualStats() {
@@ -3427,22 +3427,22 @@ JSON structure to return:
                 const groupDoc = await db.collection('groups').doc(code).get();
                 const members = groupDoc.data().members || {};
                 const todayStr = getStudyDate().toISOString().split('T')[0];
-                
+
                 let memberStats = [];
                 for (const uid of Object.keys(members)) {
                     const member = members[uid];
                     const dailyDoc = await db.collection('sessions').doc(uid).collection('daily').doc(todayStr).get();
                     const d = dailyDoc.exists ? dailyDoc.data() : {};
-                    
+
                     const cpm = d.cpm || 0;
                     const mins = d.readingMinutes || 0;
                     const furigana = d.furiganaToggles || 0;
                     const romaji = d.romajiToggles || 0;
-                    
+
                     let score = (mins * 10) + cpm - (furigana * 5) - (romaji * 10);
                     if (score < 0) score = 0;
                     if (mins === 0 && cpm === 0) score = 0;
-                    
+
                     memberStats.push({
                         name: member.name.split(' ')[0],
                         score: score,
@@ -3450,15 +3450,15 @@ JSON structure to return:
                         mins: mins
                     });
                 }
-                
+
                 memberStats.sort((a, b) => b.score - a.score);
-                
+
                 let html = '<div class="submit-card"><h3 style="margin-top:0;text-align:center;">Individual Stats Leaderboard</h3>';
                 html += '<div style="text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:20px;">Score = (Minutes × 10) + CPM - Penalty for Romaji/Furigana</div>';
-                
+
                 if (memberStats.length > 0) {
                     html += '<div style="display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:30px;height:120px;">';
-                    
+
                     if (memberStats.length > 1 && memberStats[1].score > 0) {
                         html += `<div style="text-align:center;width:80px;">
                             <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;">${memberStats[1].name}</div>
@@ -3466,7 +3466,7 @@ JSON structure to return:
                             <div style="background:#E5E7EB;height:60px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:24px;color:#9CA3AF;">2</div>
                         </div>`;
                     }
-                    
+
                     if (memberStats[0].score > 0) {
                         html += `<div style="text-align:center;width:90px;">
                             <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#1F2937;">${memberStats[0].name}</div>
@@ -3474,7 +3474,7 @@ JSON structure to return:
                             <div style="background:#FEF3C7;height:90px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px;color:#D97706;">1</div>
                         </div>`;
                     }
-                    
+
                     if (memberStats.length > 2 && memberStats[2].score > 0) {
                         html += `<div style="text-align:center;width:80px;">
                             <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;">${memberStats[2].name}</div>
@@ -3484,9 +3484,9 @@ JSON structure to return:
                     }
                     html += '</div>';
                 }
-                
+
                 html += '<div style="overflow-x:auto;"><table class="stat-table"><thead><tr><th style="width:40px;">Rank</th><th>Member</th><th>Score</th><th>CPM / Mins</th></tr></thead><tbody>';
-                
+
                 memberStats.forEach((m, index) => {
                     let rankHtml = '';
                     if (m.score === 0) rankHtml = '-';
@@ -3494,7 +3494,7 @@ JSON structure to return:
                     else if (index === 1) rankHtml = '🥈';
                     else if (index === 2) rankHtml = '🥉';
                     else rankHtml = `#${index + 1}`;
-                    
+
                     html += `<tr>
                         <td style="text-align:center;font-weight:600;">${rankHtml}</td>
                         <td style="font-weight:600;">${m.name}</td>
@@ -3502,10 +3502,10 @@ JSON structure to return:
                         <td style="font-size:12px;color:#6B7280;">${m.cpm} / ${m.mins}m</td>
                     </tr>`;
                 });
-                
+
                 html += '</tbody></table></div></div>';
                 container.innerHTML = html;
-            } catch(e) {
+            } catch (e) {
                 console.error("Individual stats error:", e);
                 container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">Failed to load leaderboard.</div>';
             }
@@ -3538,7 +3538,7 @@ JSON structure to return:
                         rows += '<tr>';
                         rows += '<td style="font-weight:600;display:flex;align-items:center;justify-content:space-between;">';
                         rows += '<span>' + member.name.split(' ')[0] + '</span>';
-                        
+
                         const statsJson = JSON.stringify({
                             name: member.name,
                             cpm: d.cpm || 0,
@@ -3547,7 +3547,7 @@ JSON structure to return:
                             romaji: d.romajiToggles || 0,
                             mode: d.dominantMode || 'None'
                         }).replace(/"/g, '&quot;');
-                        
+
                         rows += '<button style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-weight:bold;padding:0 5px;" onclick="showPersonalStatsModal(\'' + statsJson + '\')" title="View detailed stats">⋮</button>';
                         rows += '</td>';
                         rows += '<td style="' + (ankiDone ? 'color:#059669;' : 'color:#D97706;') + '">' + ankiTxt + '</td>';
