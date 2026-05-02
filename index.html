@@ -1383,24 +1383,16 @@
                 showMainApp(user);
             } else {
                 currentUser = null;
-                // Handle the result after redirect-based login
-                firebase.auth().getRedirectResult().then(result => {
-                    if (result.user) {
-                        currentUser = result.user;
-                        showMainApp(result.user);
-                    } else {
-                        showLoginPage();
-                    }
-                }).catch(err => {
-                    console.error('Redirect result error:', err);
-                    showLoginPage();
-                });
+                showLoginPage();
             }
         });
 
         function signInWithGoogle() {
             const provider = new firebase.auth.GoogleAuthProvider();
-            firebase.auth().signInWithRedirect(provider);
+            firebase.auth().signInWithPopup(provider).catch(err => {
+                console.error('Sign-in error:', err);
+                alert('Sign-in failed: ' + err.message);
+            });
         }
 
         function showLoginPage() {
