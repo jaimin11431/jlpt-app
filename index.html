@@ -2804,7 +2804,7 @@ JSON structure to return:
                             : `❌ Not done yet`;
                         const statusText = (data.readingComplete && data.ankiComplete)
                             ? `✅ All done — no penalty`
-                            : `⏳ Pending (deadline: 11:59PM)`;
+                            : `⏳ Pending (deadline: 12:10 AM)`;
 
                         const flagHTML = (doc.data().flags && doc.data().flags[uid])
                             ? `<div style="color:#EF4444; font-size:12px; margin-top:4px;">⚠️ ${doc.data().flags[uid].reason} (${doc.data().flags[uid].count} times)</div>`
@@ -2995,11 +2995,24 @@ JSON structure to return:
         // ============================================
         let currentOcrFile = null;
 
-        function getDailyCode() {
+        // Returns the "study day" date: if it's before 12:10 AM, the study day is yesterday.
+        function getStudyDate() {
             const now = new Date();
-            const day = now.getDate().toString().padStart(2, '0');
-            const month = (now.getMonth() + 1).toString().padStart(2, '0');
-            const year = now.getFullYear().toString().slice(-2);
+            const h = now.getHours(), m = now.getMinutes();
+            // Buffer: midnight to 12:10 AM still counts as previous day
+            if (h === 0 && m < 10) {
+                const yesterday = new Date(now);
+                yesterday.setDate(yesterday.getDate() - 1);
+                return yesterday;
+            }
+            return now;
+        }
+
+        function getDailyCode(dateObj) {
+            const d = dateObj || getStudyDate();
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const year = d.getFullYear().toString().slice(-2);
             const raw = day + month + year;
             let code = '';
             for (let i = 0; i < raw.length; i++) {
@@ -3010,9 +3023,11 @@ JSON structure to return:
 
         async function loadSubmitTab() {
             if (!currentUser) return alert("Please log in first.");
+            // Always show today's code (the one the user wrote on paper)
             document.getElementById('daily-code-display').textContent = getDailyCode().split('').join(' ');
 
-            const today = new Date().toISOString().split('T')[0];
+            const studyDate = getStudyDate();
+            const today = studyDate.toISOString().split('T')[0];
             const doc = await db.collection('sessions').doc(currentUser.uid).collection('daily').doc(today).get();
 
             if (doc.exists && doc.data().ankiSubmitted) {
@@ -3131,7 +3146,7 @@ JSON structure to return:
                 }
             }
 
-            const dailyCode = getDailyCode();
+            const dailyCode = getDailyCode(); // uses study-day aware date
             results.codeFound = ocrText.toUpperCase().replace(/\s/g, '').includes(dailyCode.replace(/\s/g, ''));
 
             const timeMatch = ocrText.match(/(\d+)\s*(min|minutes|分)/i);
@@ -3189,7 +3204,7 @@ JSON structure to return:
 
         async function submitAnkiSession(reviewsToday, codeFound, reason) {
             const uid = currentUser.uid;
-            const today = new Date().toISOString().split('T')[0];
+            const today = getStudyDate().toISOString().split('T')[0];
             const statusDiv = document.getElementById('submit-loading-status');
 
             try {
