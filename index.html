@@ -1217,6 +1217,7 @@
                 <div class="group-pills">
                     <button class="group-pill active" onclick="switchGroupSubTab('today')">Today</button>
                     <button class="group-pill" onclick="switchGroupSubTab('leaderboard')">Leaderboard</button>
+                    <button class="group-pill" onclick="switchGroupSubTab('individual')">Individual Stats</button>
                     <button class="group-pill" onclick="switchGroupSubTab('stats')">Stats</button>
                     <button class="group-pill" onclick="switchGroupSubTab('settings')">Settings</button>
                 </div>
@@ -1227,6 +1228,10 @@
 
                 <div id="group-sub-leaderboard" style="display:none;">
                     <div id="group-leaderboard-content"></div>
+                </div>
+
+                <div id="group-sub-individual" style="display:none;">
+                    <div id="group-individual-content"></div>
                 </div>
 
                 <div id="group-sub-stats" style="display:none;">
@@ -2670,17 +2675,34 @@ JSON structure to return:
                 dailyRef.get().then(docSnapshot => {
                     let bestCpm = cpm;
                     let existingMins = 0;
+                    let existingFurigana = 0;
+                    let existingRomaji = 0;
+                    let existingHard = 0;
+                    let existingNormal = 0;
+                    let existingEasy = 0;
                     const alreadyComplete = docSnapshot.exists && docSnapshot.data().readingComplete;
                     if (docSnapshot.exists) {
-                        bestCpm = Math.max(cpm, docSnapshot.data().cpm || 0);
-                        existingMins = docSnapshot.data().readingMinutes || 0;
+                        const d = docSnapshot.data();
+                        bestCpm = Math.max(cpm, d.cpm || 0);
+                        existingMins = d.readingMinutes || 0;
+                        existingFurigana = d.furiganaToggles || 0;
+                        existingRomaji = d.romajiToggles || 0;
+                        existingHard = d.timeHard || 0;
+                        existingNormal = d.timeNormal || 0;
+                        existingEasy = d.timeEasy || 0;
                     }
                     const newTotalMins = existingMins + Math.ceil(totalSeconds / 60);
                     const isReadingComplete = alreadyComplete || newTotalMins >= 30;
                     dailyRef.set({
                         readingComplete: isReadingComplete,
                         readingMinutes: newTotalMins,
-                        cpm: bestCpm
+                        cpm: bestCpm,
+                        furiganaToggles: existingFurigana + (furiganaToggleCount || 0),
+                        romajiToggles: existingRomaji + (romajiToggleCount || 0),
+                        timeHard: existingHard + Math.round(modeTimings.hard || 0),
+                        timeNormal: existingNormal + Math.round(modeTimings.normal || 0),
+                        timeEasy: existingEasy + Math.round(modeTimings.easy || 0),
+                        dominantMode: dominantMode
                     }, { merge: true }).then(() => loadTodayTab());
                     if (!isReadingComplete && newTotalMins < 30) {
                         const rem = 30 - newTotalMins;
@@ -3085,7 +3107,7 @@ JSON structure to return:
         }
 
         function switchGroupSubTab(tabName) {
-            ['today', 'leaderboard', 'stats', 'settings'].forEach(t => {
+            ['today', 'leaderboard', 'individual', 'stats', 'settings'].forEach(t => {
                 const el = document.getElementById(`group-sub-${t}`);
                 if (el) el.style.display = 'none';
             });
@@ -3094,11 +3116,12 @@ JSON structure to return:
             const activeEl = document.getElementById(`group-sub-${tabName}`);
             if (activeEl) activeEl.style.display = 'block';
 
-            const btn = Array.from(document.querySelectorAll('.group-pill')).find(el => el.textContent.toLowerCase().includes(tabName));
+            const btn = Array.from(document.querySelectorAll('.group-pill')).find(el => el.textContent.toLowerCase().includes(tabName === 'individual' ? 'individual' : tabName));
             if (btn) btn.classList.add('active');
 
             if (tabName === 'today') loadGroupToday();
             if (tabName === 'leaderboard') loadGroupLeaderboard();
+            if (tabName === 'individual') loadGroupIndividualStats();
             if (tabName === 'stats') loadGroupStats();
             if (tabName === 'settings') loadGroupSettings();
         }
@@ -3362,6 +3385,132 @@ JSON structure to return:
             container.innerHTML = html;
         }
 
+        function showPersonalStatsModal(statsJsonStr) {
+            try {
+                const s = JSON.parse(statsJsonStr.replace(/&quot;/g, '"'));
+                const modeStr = String(s.mode).charAt(0).toUpperCase() + String(s.mode).slice(1);
+                const html = `
+                    <div id="personal-stats-modal" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;">
+                        <div style="background:#fff;border-radius:12px;padding:24px;width:90%;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.2);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                                <h3 style="margin:0;color:#1F2937;">${s.name.split(' ')[0]}'s Stats</h3>
+                                <button onclick="document.getElementById('personal-stats-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#9CA3AF;">&times;</button>
+                            </div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
+                                <div style="color:#6B7280;">Best CPM</div>
+                                <div style="font-weight:700;color:#059669;text-align:right;">${s.cpm}</div>
+                                <div style="color:#6B7280;">Reading Time</div>
+                                <div style="font-weight:700;text-align:right;">${s.mins} min</div>
+                                <div style="color:#6B7280;">Main Mode</div>
+                                <div style="font-weight:700;text-align:right;">${modeStr}</div>
+                                <div style="color:#6B7280;">Furigana Uses</div>
+                                <div style="font-weight:700;text-align:right;">${s.furigana}</div>
+                                <div style="color:#6B7280;">Romaji Uses</div>
+                                <div style="font-weight:700;text-align:right;">${s.romaji}</div>
+                            </div>
+                            <button onclick="document.getElementById('personal-stats-modal').remove()" style="margin-top:20px;width:100%;padding:10px;background:#4F46E5;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;">Close</button>
+                        </div>
+                    </div>
+                `;
+                document.body.insertAdjacentHTML('beforeend', html);
+            } catch(e) { console.error('Error showing stats modal', e); }
+        }
+
+        async function loadGroupIndividualStats() {
+            const container = document.getElementById('group-individual-content');
+            container.innerHTML = '<div style="text-align:center;color:#6B7280;padding:20px;">Calculating Leaderboard...</div>';
+
+            const code = localStorage.getItem('jpgroupcode');
+            if (!code) return;
+
+            try {
+                const groupDoc = await db.collection('groups').doc(code).get();
+                const members = groupDoc.data().members || {};
+                const todayStr = getStudyDate().toISOString().split('T')[0];
+                
+                let memberStats = [];
+                for (const uid of Object.keys(members)) {
+                    const member = members[uid];
+                    const dailyDoc = await db.collection('sessions').doc(uid).collection('daily').doc(todayStr).get();
+                    const d = dailyDoc.exists ? dailyDoc.data() : {};
+                    
+                    const cpm = d.cpm || 0;
+                    const mins = d.readingMinutes || 0;
+                    const furigana = d.furiganaToggles || 0;
+                    const romaji = d.romajiToggles || 0;
+                    
+                    let score = (mins * 10) + cpm - (furigana * 5) - (romaji * 10);
+                    if (score < 0) score = 0;
+                    if (mins === 0 && cpm === 0) score = 0;
+                    
+                    memberStats.push({
+                        name: member.name.split(' ')[0],
+                        score: score,
+                        cpm: cpm,
+                        mins: mins
+                    });
+                }
+                
+                memberStats.sort((a, b) => b.score - a.score);
+                
+                let html = '<div class="submit-card"><h3 style="margin-top:0;text-align:center;">Individual Stats Leaderboard</h3>';
+                html += '<div style="text-align:center;font-size:12px;color:#9CA3AF;margin-bottom:20px;">Score = (Minutes × 10) + CPM - Penalty for Romaji/Furigana</div>';
+                
+                if (memberStats.length > 0) {
+                    html += '<div style="display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:30px;height:120px;">';
+                    
+                    if (memberStats.length > 1 && memberStats[1].score > 0) {
+                        html += `<div style="text-align:center;width:80px;">
+                            <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;">${memberStats[1].name}</div>
+                            <div style="font-size:11px;color:#6B7280;margin-bottom:4px;">${Math.round(memberStats[1].score)} pts</div>
+                            <div style="background:#E5E7EB;height:60px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:24px;color:#9CA3AF;">2</div>
+                        </div>`;
+                    }
+                    
+                    if (memberStats[0].score > 0) {
+                        html += `<div style="text-align:center;width:90px;">
+                            <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#1F2937;">${memberStats[0].name}</div>
+                            <div style="font-size:12px;color:#F59E0B;font-weight:600;margin-bottom:4px;">${Math.round(memberStats[0].score)} pts</div>
+                            <div style="background:#FEF3C7;height:90px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:32px;color:#D97706;">1</div>
+                        </div>`;
+                    }
+                    
+                    if (memberStats.length > 2 && memberStats[2].score > 0) {
+                        html += `<div style="text-align:center;width:80px;">
+                            <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#374151;">${memberStats[2].name}</div>
+                            <div style="font-size:11px;color:#6B7280;margin-bottom:4px;">${Math.round(memberStats[2].score)} pts</div>
+                            <div style="background:#F3E8E0;height:40px;border-radius:4px 4px 0 0;display:flex;align-items:center;justify-content:center;font-size:20px;color:#B45309;">3</div>
+                        </div>`;
+                    }
+                    html += '</div>';
+                }
+                
+                html += '<div style="overflow-x:auto;"><table class="stat-table"><thead><tr><th style="width:40px;">Rank</th><th>Member</th><th>Score</th><th>CPM / Mins</th></tr></thead><tbody>';
+                
+                memberStats.forEach((m, index) => {
+                    let rankHtml = '';
+                    if (m.score === 0) rankHtml = '-';
+                    else if (index === 0) rankHtml = '🥇';
+                    else if (index === 1) rankHtml = '🥈';
+                    else if (index === 2) rankHtml = '🥉';
+                    else rankHtml = `#${index + 1}`;
+                    
+                    html += `<tr>
+                        <td style="text-align:center;font-weight:600;">${rankHtml}</td>
+                        <td style="font-weight:600;">${m.name}</td>
+                        <td style="font-weight:700;color:${m.score > 0 ? '#4F46E5' : '#9CA3AF'};">${Math.round(m.score)}</td>
+                        <td style="font-size:12px;color:#6B7280;">${m.cpm} / ${m.mins}m</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+                container.innerHTML = html;
+            } catch(e) {
+                console.error("Individual stats error:", e);
+                container.innerHTML = '<div style="color:red;padding:20px;text-align:center;">Failed to load leaderboard.</div>';
+            }
+        }
+
 
         async function loadGroupStats() {
             const container = document.getElementById('group-stats-content');
@@ -3387,7 +3536,20 @@ JSON structure to return:
                         const readTxt = readingDone ? ('&#10003; ' + (d.readingMinutes || 0) + ' min') : (d.readingMinutes > 0 ? ((d.readingMinutes || 0) + '/30 min') : 'Pending');
                         const both = ankiDone && readingDone;
                         rows += '<tr>';
-                        rows += '<td style="font-weight:600;">' + member.name.split(' ')[0] + '</td>';
+                        rows += '<td style="font-weight:600;display:flex;align-items:center;justify-content:space-between;">';
+                        rows += '<span>' + member.name.split(' ')[0] + '</span>';
+                        
+                        const statsJson = JSON.stringify({
+                            name: member.name,
+                            cpm: d.cpm || 0,
+                            mins: d.readingMinutes || 0,
+                            furigana: d.furiganaToggles || 0,
+                            romaji: d.romajiToggles || 0,
+                            mode: d.dominantMode || 'None'
+                        }).replace(/"/g, '&quot;');
+                        
+                        rows += '<button style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-weight:bold;padding:0 5px;" onclick="showPersonalStatsModal(\'' + statsJson + '\')" title="View detailed stats">⋮</button>';
+                        rows += '</td>';
                         rows += '<td style="' + (ankiDone ? 'color:#059669;' : 'color:#D97706;') + '">' + ankiTxt + '</td>';
                         rows += '<td style="' + (readingDone ? 'color:#059669;' : (d.readingMinutes > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')) + '">' + readTxt + '</td>';
                         rows += '<td style="font-weight:700;' + (both ? 'color:#059669;' : 'color:#D97706;') + '">' + (both ? '&#10003; Complete' : 'Pending') + '</td>';
