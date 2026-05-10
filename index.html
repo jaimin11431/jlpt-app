@@ -2208,7 +2208,8 @@
                         model: 'gemini-2.5-flash',
                         messages: [{ role: 'user', content: prompt }],
                         temperature: 0.7,
-                        max_tokens: 8000
+                        max_tokens: 8000,
+                        response_format: { type: "json_object" }
                     };
                 } else if (provider === 'gemini-lite') {
                     body = {
@@ -2216,7 +2217,8 @@
                         model: 'gemini-2.5-flash-lite',
                         messages: [{ role: 'user', content: prompt }],
                         temperature: 0.7,
-                        max_tokens: 8000
+                        max_tokens: 8000,
+                        response_format: { type: "json_object" }
                     };
                 } else {
                     body = {
@@ -2226,12 +2228,14 @@
                         temperature: 0.7,
                         presence_penalty: 0.6,
                         frequency_penalty: 0.6,
-                        max_tokens: 8000
+                        max_tokens: 8000,
+                        response_format: { type: "json_object" }
                     };
                 }
 
                 for (let attempt = 0; attempt <= maxRetries; attempt++) {
                     let response;
+                    let responseData;
                     try {
                         response = await fetch(WORKER_URL, {
                             method: 'POST',
@@ -2244,7 +2248,22 @@
                         break; // If fetch fails entirely, try next provider
                     }
 
-                    if (response.ok) return response;
+                    if (response.ok) {
+                        try {
+                            responseData = await response.clone().json();
+                            const rawContent = responseData.choices[0].message.content;
+                            // Attempt to parse the JSON. If it fails, an error is thrown.
+                            JSON.parse(cleanJSON(rawContent));
+                            // If successful, return the original response so caller can use it
+                            return response;
+                        } catch (parseErr) {
+                            console.warn(`Provider ${provider} returned invalid JSON: ${parseErr.message}`);
+                            const waitSecs = Math.ceil(delays[attempt] / 1000);
+                            await showCountdown(waitSecs, `${provider} generated invalid JSON (attempt ${attempt + 1}/${maxRetries})`);
+                            lastErrorMsg = `Invalid JSON from ${provider}`;
+                            continue; // Retry with same provider
+                        }
+                    }
 
                     const isRetryable = (response.status === 429 || response.status >= 500) && attempt < maxRetries;
 
