@@ -2203,7 +2203,7 @@
                 model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.7,
-                max_tokens: 8192
+                max_tokens: 32768
             };
 
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -2265,7 +2265,8 @@ STRICT RULES:
 2. All other words MUST be written in hiragana or katakana only
 3. You MAY use natural filler words like やっぱり、なんか、ちょっと、でも in kana
 4. Overall difficulty must NOT exceed JLPT ${level.toUpperCase()} reading comprehension level
-5. GRAMMAR REQUIREMENT: You MUST exclusively use grammar patterns from the provided JLPT ${level.toUpperCase()} list below. Try to include ALL the patterns from this list in a single article (up to 15). Do NOT use patterns from higher levels. Keep the article concise (around 600 Japanese characters maximum) to prevent output truncation.
+5. GRAMMAR REQUIREMENT: You MUST exclusively use grammar patterns from the provided JLPT ${level.toUpperCase()} list below. Try to include ALL the patterns from this list across the article (up to 15 patterns). Do NOT use patterns from higher levels.
+   ARTICLE LENGTH: Write a LONG, multi-paragraph article of at least 2500–3500 Japanese characters spread across 30–50 sentences. The article must be a coherent, engaging story or essay with a clear structure (introduction, development, conclusion). Your top priority is to include as many kanji from the provided kanji list as possible — aim to use EVERY kanji at least once across the full article.
    Allowed ${level.toUpperCase()} Patterns:
    ${JSON.stringify(selectedGrammarChunk)}
 6. Topic: ${topic}
