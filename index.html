@@ -2942,6 +2942,37 @@ Raw JSON starting with { and ending with }
         function updateTimerDisplay() {
             timerElapsedMs = Date.now() - timerStartTime;
             document.getElementById('timer-display').textContent = formatTime(timerElapsedMs);
+
+            // Update debug status bar
+            let debugBar = document.getElementById('debug-timer-bar');
+            if (!debugBar) {
+                debugBar = document.createElement('div');
+                debugBar.id = 'debug-timer-bar';
+                debugBar.style.position = 'fixed';
+                debugBar.style.bottom = '0';
+                debugBar.style.left = '0';
+                debugBar.style.width = '100%';
+                debugBar.style.background = 'rgba(0,0,0,0.85)';
+                debugBar.style.color = '#fff';
+                debugBar.style.textAlign = 'center';
+                debugBar.style.padding = '8px';
+                debugBar.style.fontFamily = 'monospace';
+                debugBar.style.fontSize = '14px';
+                debugBar.style.zIndex = '99999';
+                document.body.appendChild(debugBar);
+            }
+            debugBar.style.display = 'block';
+            
+            const now = Date.now();
+            const currentModeElapsed = modeLastSwitchTime ? (now - modeLastSwitchTime) / 1000 : 0;
+            const hard = Math.floor(modeTimings.hard + (currentMode === 'hard' ? currentModeElapsed : 0));
+            const normal = Math.floor(modeTimings.normal + (currentMode === 'normal' ? currentModeElapsed : 0));
+            const easy = Math.floor(modeTimings.easy + (currentMode === 'easy' ? currentModeElapsed : 0));
+            const total = Math.floor(timerElapsedMs / 1000);
+
+            const fmt = s => Math.floor(s/60) > 0 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`;
+            
+            debugBar.innerHTML = `⏱️ Total: <b>${fmt(total)}</b> | 🔴 Hard: ${fmt(hard)} | 🟡 Normal: ${fmt(normal)} | 🟢 Easy: ${fmt(easy)}`;
         }
 
         function formatTime(ms) {
@@ -2968,6 +2999,9 @@ Raw JSON starting with { and ending with }
         function stopAndCalculate() {
             clearInterval(timerInterval);
             timerRunning = false;
+
+            const debugBar = document.getElementById('debug-timer-bar');
+            if (debugBar) debugBar.style.display = 'none';
 
             const articleText = currentArticleData ? currentArticleData.article : '';
             const cpmResult = calculateCPM(articleText, timerElapsedMs);
@@ -3252,21 +3286,24 @@ Raw JSON starting with { and ending with }
                     let existingHard = 0;
                     let existingNormal = 0;
                     let existingEasy = 0;
+                    let existingSecs = 0;
                     const alreadyComplete = docSnapshot.exists && docSnapshot.data().readingComplete;
                     if (docSnapshot.exists) {
                         const d = docSnapshot.data();
                         bestCpm = Math.max(data.cpm, d.cpm || 0);
-                        existingMins = d.readingMinutes || 0;
+                        existingSecs = d.readingSeconds !== undefined ? d.readingSeconds : ((d.readingMinutes || 0) * 60);
                         existingFurigana = d.furiganaToggles || 0;
                         existingRomaji = d.romajiToggles || 0;
                         existingHard = d.timeHard || 0;
                         existingNormal = d.timeNormal || 0;
                         existingEasy = d.timeEasy || 0;
                     }
-                    const newTotalMins = existingMins + Math.ceil(data.totalSeconds / 60);
-                    const isReadingComplete = alreadyComplete || newTotalMins >= 30;
+                    const newTotalSecs = existingSecs + Math.floor(data.totalSeconds);
+                    const newTotalMins = Math.floor(newTotalSecs / 60);
+                    const isReadingComplete = alreadyComplete || newTotalSecs >= 1800;
                     dailyRef.set({
                         readingComplete: isReadingComplete,
+                        readingSeconds: newTotalSecs,
                         readingMinutes: newTotalMins,
                         cpm: bestCpm,
                         furiganaToggles: existingFurigana + (furiganaToggleCount || 0),
@@ -3276,9 +3313,11 @@ Raw JSON starting with { and ending with }
                         timeEasy: existingEasy + Math.round(modeTimings.easy || 0),
                         dominantMode: data.dominantMode
                     }, { merge: true }).then(() => loadTodayTab());
-                    if (!isReadingComplete && newTotalMins < 30) {
-                        const rem = 30 - newTotalMins;
-                        showWarning(`📖 ${newTotalMins} min recorded (${rem} more min needed to complete reading task)`);
+                    if (!isReadingComplete && newTotalSecs < 1800) {
+                        const remSecs = 1800 - newTotalSecs;
+                        const remM = Math.floor(remSecs / 60);
+                        const remS = remSecs % 60;
+                        showWarning(`📖 ${newTotalMins}m ${newTotalSecs % 60}s recorded (${remM}m ${remS}s more needed to complete reading task)`);
                     }
                 }).catch(err => console.error("Error saving to Firebase:", err));
             }
@@ -3750,11 +3789,18 @@ Raw JSON starting with { and ending with }
                         const ankiText = ankiDone
                             ? `✅ ${data.ankiReviews || 0} reviews`
                             : `⏳ Pending`;
+                            
+                        const readSecs = data.readingSeconds !== undefined ? data.readingSeconds : ((data.readingMinutes || 0) * 60);
+                        const readM = Math.floor(readSecs / 60);
+                        const readS = readSecs % 60;
+                        const readFmt = readM > 0 ? `${readM}m ${readS}s` : `${readS}s`;
+
                         const readingText = readingDone
-                            ? `✅ ${data.readingMinutes || 0} min`
-                            : data.readingMinutes > 0
-                                ? `⏳ ${data.readingMinutes} / 30 min`
+                            ? `✅ ${readFmt}`
+                            : readSecs > 0
+                                ? `⏳ ${readFmt} / 30m 0s`
                                 : `⏳ Pending`;
+                                
                         const statusBg = bothDone ? 'background:#D1FAE5;border-color:#34D399;' : 'background:#FFF7ED;border-color:#FCD34D;';
                         const statusColor = bothDone ? 'color:#059669;' : 'color:#D97706;';
                         const statusMsg = bothDone ? '✅ All tasks complete!' : `⏳ Pending(deadline 12: 10 AM)`;
@@ -3763,7 +3809,7 @@ Raw JSON starting with { and ending with }
                             ? `<div style="color:#EF4444; font-size:12px; margin-top:6px;" >⚠️ ${doc.data().flags[uid].reason}(${doc.data().flags[uid].count}×)</div> `
                             : ``;
 
-                        const readingPct = Math.min(100, Math.round((data.readingMinutes || 0) / 30 * 100));
+                        const readingPct = Math.min(100, Math.round((readSecs / 1800) * 100));
 
                         cardDiv.innerHTML = `
                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;" >
@@ -3778,8 +3824,8 @@ Raw JSON starting with { and ending with }
                                 </div>
                                 <div style="background:#F9FAFB;border-radius:8px;padding:10px;">
                                     <div style="font-size:11px;color:#9CA3AF;font-weight:600;margin-bottom:4px;">📖 READING</div>
-                                    <div style="font-size:13px;font-weight:600;${readingDone ? 'color:#059669;' : (data.readingMinutes > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')}">${readingText}</div>
-                                    ${data.readingMinutes > 0 && !readingDone ? '<div style="background:#E5E7EB;border-radius:3px;height:4px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + readingPct + '%;background:#F59E0B;border-radius:3px;"></div></div>' : ''}
+                                    <div style="font-size:13px;font-weight:600;${readingDone ? 'color:#059669;' : (readSecs > 0 ? 'color:#D97706;' : 'color:#9CA3AF;')}">${readingText}</div>
+                                    ${readSecs > 0 && !readingDone ? '<div style="background:#E5E7EB;border-radius:3px;height:4px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:' + readingPct + '%;background:#F59E0B;border-radius:3px;"></div></div>' : ''}
                                 </div>
                             </div>
                             ${flagHTML}
