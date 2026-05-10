@@ -2311,18 +2311,25 @@
 
             const selectedGrammarChunk = JLPT_GRAMMAR[level][groupIndex];
 
-            // ── Split kanji list into two halves to stay under TPM limit ──
+            // ── Split kanji list into three parts to stay under TPM limit and ensure coverage ──
             const kanjiChars = [...kanji].filter(c => /[\u4E00-\u9FFF]/.test(c));
-            const mid = Math.ceil(kanjiChars.length / 2);
-            const kanjiPart1 = kanjiChars.slice(0, mid).join('');
-            const kanjiPart2 = kanjiChars.slice(mid).join('');
+            const third = Math.ceil(kanjiChars.length / 3);
+            const kanjiPart1 = kanjiChars.slice(0, third).join('');
+            const kanjiPart2 = kanjiChars.slice(third, third * 2).join('');
+            const kanjiPart3 = kanjiChars.slice(third * 2).join('');
 
-            // Shared prompt builder — Part 1 opens the story, Part 2 concludes + adds MCQ
+            // Shared prompt builder — Part 1 opens the story, Part 2 develops it, Part 3 concludes + adds MCQ
             function buildPrompt(kanjiSubset, partNum) {
-                const isLastPart = partNum === 2;
-                const storyDirection = partNum === 1
-                    ? 'This is the OPENING of the story — introduce the setting, characters, and situation clearly.'
-                    : 'This is the CONCLUSION of the story — develop and resolve the plot naturally.';
+                const isLastPart = partNum === 3;
+                let storyDirection = '';
+                if (partNum === 1) {
+                    storyDirection = 'This is the OPENING of the story — introduce the setting, characters, and situation clearly.';
+                } else if (partNum === 2) {
+                    storyDirection = 'This is the MIDDLE of the story — continue the plot, escalate the situation, and introduce new events.';
+                } else {
+                    storyDirection = 'This is the CONCLUSION of the story — develop and resolve the plot naturally.';
+                }
+                const prefix = ['a', 'b', 'c'][partNum - 1];
 
                 return `You are a Japanese reading practice generator for a JLPT student.
 
@@ -2335,10 +2342,10 @@ STRICT RULES:
 5. GRAMMAR: Use patterns ONLY from this JLPT ${level.toUpperCase()} list. Aim to use as many as possible:
    ${JSON.stringify(selectedGrammarChunk)}
 6. Topic: ${topic}
-7. LENGTH: Write between 15 and 25 natural sentences. ${storyDirection} Every sentence MUST add new information or advance the plot. DO NOT repeat the same sentences or ideas.
-8. Sentence IDs for Part ${partNum} MUST start with "${partNum === 1 ? 's' : 'b'}" — e.g. "${partNum === 1 ? 's1' : 'b1'}", "${partNum === 1 ? 's2' : 'b2'}", etc.
+7. LENGTH: Write between 10 and 15 natural sentences. ${storyDirection} Every sentence MUST add new information or advance the plot. DO NOT repeat the same sentences or ideas.
+8. Sentence IDs for Part ${partNum} MUST start with "${prefix}" — e.g. "${prefix}1", "${prefix}2", etc.
 
-${isLastPart ? `Also generate exactly 3 comprehension questions spanning the WHOLE story (both parts).
+${isLastPart ? `Also generate exactly 3 comprehension questions spanning the WHOLE story (all parts).
 Rules for MCQ:
 1. Reference SPECIFIC details — names, numbers, actions, locations, or times
 2. Do NOT ask about general theme
@@ -2354,7 +2361,7 @@ Raw JSON starting with { and ending with }
   "article": "the complete text of this part as one string",
   "sentences": [
     {
-      "id": "${partNum === 1 ? 's' : 'b'}1",
+      "id": "${prefix}1",
       "japanese": "sentence with kanji",
       "romaji": "full romaji reading",
       "furigana_html": "MUST use ruby tags for EVERY kanji: <ruby>今日<rt>きょう</rt></ruby>は",
@@ -2368,7 +2375,7 @@ Raw JSON starting with { and ending with }
     {
       "pattern": "〜たことがある",
       "level": "${level.toUpperCase()}",
-      "sentence_id": "${partNum === 1 ? 's' : 'b'}1",
+      "sentence_id": "${prefix}1",
       "example": "富士山に登ったことがある。",
       "explanation": "Expresses past experience"
     }
@@ -2402,7 +2409,7 @@ Raw JSON starting with { and ending with }
 
             try {
                 // ── Part 1 ──
-                setLoadingText('Generating Part 1 of 2…');
+                setLoadingText('Generating Part 1 of 3…');
                 const res1 = await callGrokWithRetry(buildPrompt(kanjiPart1, 1));
                 const raw1 = (await res1.json()).choices[0].message.content;
                 let part1;
@@ -2414,7 +2421,7 @@ Raw JSON starting with { and ending with }
                 }
 
                 // ── Part 2 ──
-                setLoadingText('Generating Part 2 of 2…');
+                setLoadingText('Generating Part 2 of 3…');
                 const res2 = await callGrokWithRetry(buildPrompt(kanjiPart2, 2));
                 const raw2 = (await res2.json()).choices[0].message.content;
                 let part2;
@@ -2425,13 +2432,26 @@ Raw JSON starting with { and ending with }
                     throw new Error('JSON');
                 }
 
-                // ── Merge both parts ──
+                // ── Part 3 ──
+                setLoadingText('Generating Part 3 of 3…');
+                const res3 = await callGrokWithRetry(buildPrompt(kanjiPart3, 3));
+                const raw3 = (await res3.json()).choices[0].message.content;
+                let part3;
+                try {
+                    part3 = JSON.parse(cleanJSON(raw3));
+                } catch (e) {
+                    console.error('Part 3 parse failed:', raw3);
+                    throw new Error('JSON');
+                }
+
+                // ── Merge all parts ──
+                const mergedVocab12 = mergeVocab(part1.vocabulary || [], part2.vocabulary || []);
                 const merged = {
-                    article: (part1.article || '') + '\n\n' + (part2.article || ''),
-                    sentences: [...(part1.sentences || []), ...(part2.sentences || [])],
-                    vocabulary: mergeVocab(part1.vocabulary || [], part2.vocabulary || []),
-                    patterns_used: [...(part1.patterns_used || []), ...(part2.patterns_used || [])],
-                    mcq: part2.mcq || []
+                    article: (part1.article || '') + '\n\n' + (part2.article || '') + '\n\n' + (part3.article || ''),
+                    sentences: [...(part1.sentences || []), ...(part2.sentences || []), ...(part3.sentences || [])],
+                    vocabulary: mergeVocab(mergedVocab12, part3.vocabulary || []),
+                    patterns_used: [...(part1.patterns_used || []), ...(part2.patterns_used || []), ...(part3.patterns_used || [])],
+                    mcq: part3.mcq || []
                 };
 
                 currentArticleData = merged;
