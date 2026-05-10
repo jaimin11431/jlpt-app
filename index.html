@@ -2203,6 +2203,8 @@
                 model: 'llama-3.3-70b-versatile',
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.7,
+                presence_penalty: 0.6,
+                frequency_penalty: 0.6,
                 max_tokens: 8000 // 8000 tokens ensures enough space for the heavily-tagged JSON
             };
 
@@ -2281,7 +2283,7 @@ STRICT RULES:
 5. GRAMMAR: Use patterns ONLY from this JLPT ${level.toUpperCase()} list. Aim to use as many as possible:
    ${JSON.stringify(selectedGrammarChunk)}
 6. Topic: ${topic}
-7. LENGTH: Write exactly 15-20 natural sentences. ${storyDirection}
+7. LENGTH: Write between 15 and 25 natural sentences. ${storyDirection} Every sentence MUST add new information or advance the plot. DO NOT repeat the same sentences or ideas.
 8. Sentence IDs for Part ${partNum} MUST start with "${partNum === 1 ? 's' : 'b'}" — e.g. "${partNum === 1 ? 's1' : 'b1'}", "${partNum === 1 ? 's2' : 'b2'}", etc.
 
 ${isLastPart ? `Also generate exactly 3 comprehension questions spanning the WHOLE story (both parts).
