@@ -2197,51 +2197,75 @@
 
         async function callGrokWithRetry(prompt, maxRetries = 3) {
             const delays = [5000, 15000, 30000]; // 5s, 15s, 30s
+            const providers = ['gemini', 'groq'];
+            let lastErrorMsg = '';
 
-            // Body sent to the Cloudflare Worker — worker forwards to Groq
-            const body = {
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                presence_penalty: 0.6,
-                frequency_penalty: 0.6,
-                max_tokens: 8000 // 8000 tokens ensures enough space for the heavily-tagged JSON
-            };
-
-            for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                const response = await fetch(WORKER_URL, {
-                    method: 'POST',
-                    headers: getWorkerHeaders(),
-                    body: JSON.stringify(body)
-                });
-
-                if (response.ok) return response;
-
-                const isRetryable = (response.status === 429 || response.status >= 500) && attempt < maxRetries;
-
-                if (isRetryable) {
-                    const waitSecs = Math.ceil(delays[attempt] / 1000);
-                    const reason = response.status === 429
-                        ? `Rate limited (attempt ${attempt + 1}/${maxRetries})`
-                        : `Server error ${response.status} (attempt ${attempt + 1}/${maxRetries})`;
-                    await showCountdown(waitSecs, reason);
-                    continue;
-                }
-
-                // Non-retryable or exhausted retries
-                let errorMsg = `API error ${response.status}.`;
-                try {
-                    const errData = await response.json();
-                    if (errData && errData.error && errData.error.message) {
-                        errorMsg += ` Details: ${errData.error.message}`;
+            for (const provider of providers) {
+                const body = provider === 'gemini' 
+                    ? {
+                        provider: 'gemini',
+                        model: 'gemini-2.0-flash',
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.7,
+                        max_tokens: 8000
                     }
-                } catch (e) { }
+                    : {
+                        provider: 'groq',
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.7,
+                        presence_penalty: 0.6,
+                        frequency_penalty: 0.6,
+                        max_tokens: 8000
+                    };
 
-                if (response.status === 401) errorMsg = 'API key invalid. ' + errorMsg;
-                else if (response.status === 403) errorMsg = 'Access denied. ' + errorMsg;
-                else if (response.status === 429) errorMsg = 'Rate limit exceeded. ' + errorMsg;
-                throw new Error(errorMsg);
+                for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                    let response;
+                    try {
+                        response = await fetch(WORKER_URL, {
+                            method: 'POST',
+                            headers: getWorkerHeaders(),
+                            body: JSON.stringify(body)
+                        });
+                    } catch (err) {
+                        lastErrorMsg = err.message;
+                        console.warn(`Provider ${provider} fetch failed: ${err.message}`);
+                        break; // If fetch fails entirely, try next provider
+                    }
+
+                    if (response.ok) return response;
+
+                    const isRetryable = (response.status === 429 || response.status >= 500) && attempt < maxRetries;
+
+                    if (isRetryable) {
+                        const waitSecs = Math.ceil(delays[attempt] / 1000);
+                        const reason = response.status === 429
+                            ? `${provider} Rate limited (attempt ${attempt + 1}/${maxRetries})`
+                            : `${provider} Server error ${response.status} (attempt ${attempt + 1}/${maxRetries})`;
+                        await showCountdown(waitSecs, reason);
+                        continue;
+                    }
+
+                    // Non-retryable or exhausted retries for this provider
+                    let errorMsg = `${provider} API error ${response.status}.`;
+                    try {
+                        const errData = await response.json();
+                        if (errData && errData.error && errData.error.message) {
+                            errorMsg += ` Details: ${errData.error.message}`;
+                        }
+                    } catch (e) { }
+
+                    if (response.status === 401) errorMsg = `${provider} API key invalid. ` + errorMsg;
+                    else if (response.status === 403) errorMsg = `${provider} Access denied. ` + errorMsg;
+                    else if (response.status === 429) errorMsg = `${provider} Rate limit exceeded. ` + errorMsg;
+                    
+                    lastErrorMsg = errorMsg;
+                    console.warn(`Provider ${provider} failed: ${errorMsg}`);
+                    break; // Break the attempt loop to fall back to the next provider
+                }
             }
+            
+            throw new Error(`All providers failed. Last error: ${lastErrorMsg}`);
         }
 
         async function generateArticle(kanji, topic, level, groupIndex) {
