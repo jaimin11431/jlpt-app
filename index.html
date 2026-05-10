@@ -2468,7 +2468,8 @@ Raw JSON starting with { and ending with }
 
             const missingReadings = [];
 
-            targetKanjiList.forEach(k => {
+            const kanjiArray = typeof targetKanjiList === 'string' ? targetKanjiList.split('') : Array.from(targetKanjiList);
+            kanjiArray.forEach(k => {
                 const dictEntry = wkKanjiDict[k];
                 if (!dictEntry) return;
 
@@ -2910,7 +2911,10 @@ Raw JSON starting with { and ending with }
                         </div>
                     </div>
                 `;
-                return; // Stop here, do not show MCQ or save
+                if (currentArticleData && currentArticleData.mcq) {
+                    showMCQ(currentArticleData.mcq, null);
+                }
+                return; // Stop here, do not save session
             }
 
             const cpm = cpmResult.cpm;
@@ -3100,18 +3104,32 @@ Raw JSON starting with { and ending with }
             resultDiv.style.display = 'block';
 
             if (passed) {
-                resultDiv.innerHTML = `
-                    <div style="background:#D1FAE5; border:1px solid #6EE7B7; border-radius:8px; padding:16px;">
-                        <div style="font-size:16px; font-weight:600; color:#065F46;">
-                        ✅ ${correct}/3 correct — Reading confirmed!
+                if (pendingSessionData) {
+                    resultDiv.innerHTML = `
+                        <div style="background:#D1FAE5; border:1px solid #6EE7B7; border-radius:8px; padding:16px;">
+                            <div style="font-size:16px; font-weight:600; color:#065F46;">
+                            ✅ ${correct}/3 correct — Reading confirmed!
+                            </div>
+                            <div style="font-size:13px; color:#047857; margin-top:4px;">
+                            Session saved. Your CPM and stats have been recorded.
+                            </div>
                         </div>
-                        <div style="font-size:13px; color:#047857; margin-top:4px;">
-                        Session saved. Your CPM and stats have been recorded.
+                    `;
+                    document.getElementById('mcq-submit-btn').style.display = 'none';
+                    saveFinalSession(pendingSessionData, correct);
+                } else {
+                    resultDiv.innerHTML = `
+                        <div style="background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; padding:16px;">
+                            <div style="font-size:16px; font-weight:600; color:#92400E;">
+                            ✅ ${correct}/3 correct — Good job!
+                            </div>
+                            <div style="font-size:13px; color:#B45309; margin-top:4px;">
+                            Questions answered correctly. (Reading stats were not saved because the reading speed was invalid).
+                            </div>
                         </div>
-                    </div>
-                `;
-                document.getElementById('mcq-submit-btn').style.display = 'none';
-                saveFinalSession(pendingSessionData, correct);
+                    `;
+                    document.getElementById('mcq-submit-btn').style.display = 'none';
+                }
             } else {
                 resultDiv.innerHTML = `
                     <div style="background:#FEE2E2; border:1px solid #FCA5A5; border-radius:8px; padding:16px;">
