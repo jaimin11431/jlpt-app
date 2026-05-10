@@ -986,6 +986,7 @@
         <!-- TABS -->
         <div class="tab-nav" style="overflow-x:auto; white-space:nowrap; align-items:center;">
             <button class="tab-btn active" id="tab-practice" onclick="switchTab('practice')">Practice</button>
+            <button class="tab-btn" id="tab-saved" onclick="switchTab('saved')">Saved</button>
             <button class="tab-btn" id="tab-today" onclick="switchTab('today')">Today</button>
             <button class="tab-btn" id="tab-statistics" onclick="switchTab('statistics')">Statistics</button>
             <button class="tab-btn" id="tab-group" onclick="switchTab('group')">Group</button>
@@ -1175,10 +1176,18 @@
              ============================================ -->
             <div id="bottomBar">
                 <button class="btn-secondary" id="saveBtn">Save Article</button>
-                <button class="btn-tertiary" id="savedArticlesBtn">Saved Articles <span
-                        id="savedCount">0</span></button>
             </div>
         </div> <!-- End of practice-tab container -->
+
+        <!-- ============================================
+             SAVED ARTICLES TAB
+             ============================================ -->
+        <div class="container" id="saved-tab" style="display:none;">
+            <div id="saved-tab-content">
+                <h2>Saved Articles</h2>
+                <div id="savedArticlesList" style="margin-top:16px;"></div>
+            </div>
+        </div>
 
         <!-- ============================================
              TODAY'S TASKS TAB
@@ -1387,19 +1396,6 @@
         </div>
     </div>
 
-    <!-- ============================================
-         SAVED ARTICLES MODAL
-         ============================================ -->
-    <div id="savedModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>Saved Articles</span>
-                <button class="modal-close" id="modalClose">&times;</button>
-            </div>
-            <div id="savedArticlesList"></div>
-        </div>
-    </div>
-
     <script>
         // ============================================
         // GLOBAL STATE
@@ -1562,10 +1558,6 @@
 
         const bottomBar = document.getElementById('bottomBar');
         const saveBtn = document.getElementById('saveBtn');
-        const savedArticlesBtn = document.getElementById('savedArticlesBtn');
-        const savedCount = document.getElementById('savedCount');
-        const savedModal = document.getElementById('savedModal');
-        const modalClose = document.getElementById('modalClose');
         const savedArticlesList = document.getElementById('savedArticlesList');
 
         // ============================================
@@ -1679,17 +1671,7 @@
             header.addEventListener('click', handleCollapsibleToggle);
         });
         saveBtn.addEventListener('click', handleSaveArticle);
-        savedArticlesBtn.addEventListener('click', handleShowSavedArticles);
-        modalClose.addEventListener('click', () => {
-            savedModal.style.display = 'none';
-        });
 
-        // Close modal when clicking outside
-        window.addEventListener('click', (e) => {
-            if (e.target === savedModal) {
-                savedModal.style.display = 'none';
-            }
-        });
 
         // Initialize Dynamic Grammar Groups Dropdown
         function updateGrammarGroups() {
@@ -1896,16 +1878,15 @@
             });
 
             localStorage.setItem(key, value);
-            updateSavedCount();
             showSuccess('Article saved successfully!');
         }
 
-        function handleShowSavedArticles() {
+        function renderSavedArticlesTab() {
             const saved = getSavedArticles();
             savedArticlesList.innerHTML = '';
 
             if (saved.length === 0) {
-                savedArticlesList.innerHTML = '<div class="empty-state">No saved articles yet</div>';
+                savedArticlesList.innerHTML = '<div class="empty-state" style="text-align:center;color:#6B7280;padding:40px;">No saved articles yet</div>';
             } else {
                 saved.forEach((item, index) => {
                     const date = new Date(item.timestamp);
@@ -1915,43 +1896,70 @@
                     div.style.display = 'flex';
                     div.style.justifyContent = 'space-between';
                     div.style.alignItems = 'center';
+                    div.style.padding = '12px';
+                    div.style.marginBottom = '8px';
+                    div.style.background = '#F9FAFB';
+                    div.style.borderRadius = '8px';
+                    div.style.border = '1px solid #E5E7EB';
 
                     const contentDiv = document.createElement('div');
                     contentDiv.style.flex = '1';
                     contentDiv.style.cursor = 'pointer';
                     contentDiv.innerHTML = `
-                        <div class="saved-article-topic">${item.topic}</div>
-                        <div class="saved-article-time">${formatted}</div>
-                        ${item.metrics ? `<div style="font-size:11px; color:#6B7280;">Metrics: F:${item.metrics.furiganaToggles} | R:${item.metrics.romajiToggles} | Taps:${item.metrics.easyTaps}</div>` : ''}
+                        <div class="saved-article-topic" style="font-weight:600;color:#111827;font-size:15px;">${item.topic}</div>
+                        <div class="saved-article-time" style="font-size:12px;color:#6B7280;margin-top:2px;">${formatted}</div>
+                        ${item.metrics ? `<div style="font-size:11px; color:#6B7280;margin-top:4px;">Metrics: F:${item.metrics.furiganaToggles} | R:${item.metrics.romajiToggles} | Taps:${item.metrics.easyTaps}</div>` : ''}
                     `;
                     contentDiv.addEventListener('click', () => {
+                        // LOAD ARTICLE
                         currentArticleData = item.articleData;
                         topicSelect.value = item.topic;
-                        grammarInput.value = item.grammarPattern || '';
-                        renderArticle();
+                        
+                        // Switch to Practice tab where the timer / Finish Reading button are located
+                        switchTab('practice');
+                        
+                        // Render UI
                         modeSelector.style.display = 'flex';
                         modeButtons.forEach(btn => btn.classList.remove('active'));
-                        modeButtons[0].classList.add('active');
+                        modeButtons[0].classList.add('active'); // Default to hard
                         currentMode = 'hard';
                         showingFurigana = false;
                         showingRomaji = false;
                         articlePanel.style.display = 'block';
                         reviewPanel.style.display = 'block';
                         bottomBar.style.display = 'flex';
-                        savedModal.style.display = 'none';
+                        
+                        renderArticle();
+                        
+                        // INITIALIZE ALL TRACKING
+                        resetTimer();
+                        easyTapCount = 0;
+                        resetEngagementTracking();
+                        
+                        if (readingVerifier) {
+                            readingVerifier.destroy();
+                            readingVerifier = null;
+                        }
+                        showExpectedReadingTime(currentArticleData.article);
+                        initReadingVerifier();
+                        
+                        document.getElementById('stopwatch-panel').style.display = 'block';
+                        const debugBar = document.getElementById('debug-timer-bar');
+                        if (debugBar) debugBar.style.display = 'block';
+                        
+                        showSuccess('Saved article loaded! Timer started.');
                     });
 
                     const deleteBtn = document.createElement('button');
                     deleteBtn.className = 'btn-tertiary';
-                    deleteBtn.textContent = '🗑️';
+                    deleteBtn.textContent = '🗑️ Delete';
                     deleteBtn.style.padding = '6px 10px';
                     deleteBtn.style.marginLeft = '12px';
                     deleteBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         if (confirm('Delete this saved article?')) {
                             localStorage.removeItem(item.key);
-                            updateSavedCount();
-                            handleShowSavedArticles();
+                            renderSavedArticlesTab();
                         }
                     });
 
@@ -1960,8 +1968,6 @@
                     savedArticlesList.appendChild(div);
                 });
             }
-
-            savedModal.style.display = 'block';
         }
 
         // ============================================
@@ -2846,7 +2852,7 @@ Raw JSON starting with { and ending with }
         // SETTINGS & TABS
         // ============================================
         function switchTab(tab) {
-            ['practice', 'today', 'statistics', 'group', 'submit'].forEach(t => {
+            ['practice', 'saved', 'today', 'statistics', 'group', 'submit'].forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 if (btn) btn.classList.remove('active');
                 const content = document.getElementById(`${t}-tab`);
@@ -2863,6 +2869,7 @@ Raw JSON starting with { and ending with }
             if (tab === 'statistics') renderStatistics();
             if (tab === 'group' && typeof loadGroupTab === 'function') loadGroupTab();
             if (tab === 'submit' && typeof loadSubmitTab === 'function') loadSubmitTab();
+            if (tab === 'saved') renderSavedArticlesTab();
         }
 
         function openSettings() {
