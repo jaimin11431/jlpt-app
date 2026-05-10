@@ -2257,99 +2257,130 @@
 
             const selectedGrammarChunk = JLPT_GRAMMAR[level][groupIndex];
 
-            const prompt = `You are a Japanese reading practice generator for a JLPT student.
+            // ── Split kanji list into two halves to stay under TPM limit ──
+            const kanjiChars = [...kanji].filter(c => /[\u4E00-\u9FFF]/.test(c));
+            const mid = Math.ceil(kanjiChars.length / 2);
+            const kanjiPart1 = kanjiChars.slice(0, mid).join('');
+            const kanjiPart2 = kanjiChars.slice(mid).join('');
+
+            // Shared prompt builder — Part 1 opens the story, Part 2 concludes + adds MCQ
+            function buildPrompt(kanjiSubset, partNum) {
+                const isLastPart = partNum === 2;
+                const storyDirection = partNum === 1
+                    ? 'This is the OPENING of the story — introduce the setting, characters, and situation clearly.'
+                    : 'This is the CONCLUSION of the story — develop and resolve the plot naturally.';
+
+                return `You are a Japanese reading practice generator for a JLPT student.
 
 STRICT RULES:
-1. ONLY use kanji from the list below. If kanji are grouped by priority, you MUST try your hardest to use the "High Priority" and "Medium Priority" kanji as frequently as possible to build the core of the story. Use the "Low Priority" kanji only when necessary to make the sentence natural:
-   ${kanji}
+1. ONLY use kanji from the list below. Try to use EVERY kanji from this list at least once:
+   ${kanjiSubset}
 2. All other words MUST be written in hiragana or katakana only
 3. You MAY use natural filler words like やっぱり、なんか、ちょっと、でも in kana
 4. Overall difficulty must NOT exceed JLPT ${level.toUpperCase()} reading comprehension level
-5. GRAMMAR REQUIREMENT: You MUST exclusively use grammar patterns from the provided JLPT ${level.toUpperCase()} list below. Try to include ALL the patterns from this list across the article (up to 15 patterns). Do NOT use patterns from higher levels.
-   ARTICLE LENGTH: Write a LONG, multi-paragraph article of at least 2500–3500 Japanese characters spread across 30–50 sentences. The article must be a coherent, engaging story or essay with a clear structure (introduction, development, conclusion). Your top priority is to include as many kanji from the provided kanji list as possible — aim to use EVERY kanji at least once across the full article.
-   Allowed ${level.toUpperCase()} Patterns:
+5. GRAMMAR: Use patterns ONLY from this JLPT ${level.toUpperCase()} list. Aim to use as many as possible:
    ${JSON.stringify(selectedGrammarChunk)}
 6. Topic: ${topic}
-7. Use appropriate JLPT vocabulary for the level.
-8. Every sentence must feel like natural conversational Japanese.
+7. LENGTH: Write exactly 15-20 natural sentences. ${storyDirection}
+8. Sentence IDs for Part ${partNum} MUST start with "${partNum === 1 ? 's' : 'b'}" — e.g. "${partNum === 1 ? 's1' : 'b1'}", "${partNum === 1 ? 's2' : 'b2'}", etc.
 
-Also generate exactly 3 comprehension questions about the article.
-Rules for questions:
-1. Every question MUST reference a SPECIFIC detail from the article — a name, number, action, location, or time that was explicitly stated
-2. Do NOT ask about the general topic or theme
-3. Wrong answer options must be PLAUSIBLE in the article's context but factually incorrect based on the article text
-4. Questions must be written in Japanese at the same difficulty as the article
-5. Answer options should be short — 2 to 8 Japanese characters each
-6. Correct answer index is 0-based (0=first option, 1=second, etc.)
+${isLastPart ? `Also generate exactly 3 comprehension questions spanning the WHOLE story (both parts).
+Rules for MCQ:
+1. Reference SPECIFIC details — names, numbers, actions, locations, or times
+2. Do NOT ask about general theme
+3. Wrong options must be plausible but factually wrong
+4. Questions in Japanese at article difficulty
+5. Options: 2-8 Japanese characters each
+6. correct is 0-based index` : 'Do NOT generate mcq for this part — output an empty array [] for mcq.'}
 
-Bad question example (do not do this):
-"この記事は何について話していますか？" — too general, guessable
+Return ONLY valid JSON. No markdown. No backticks. No explanation.
+Raw JSON starting with { and ending with }
 
-Good question example (do this):
-"たろうは何時に駅に着きましたか？" — specific fact from article
-
-Return ONLY a valid JSON object. No markdown. No backticks. No explanation. 
-Just the raw JSON starting with { and ending with }
-
-JSON structure to return:
 {
-  "article": "the complete article as one string",
+  "article": "the complete text of this part as one string",
   "sentences": [
     {
-      "id": "s1",
-      "japanese": "sentence in Japanese with kanji",
-      "romaji": "full romaji reading of this sentence",
-      "furigana_html": "CRITICAL: MUST use FULL ruby tags for EVERY kanji like <ruby>今日<rt>きょう</rt></ruby>は",
-      "english": "natural English translation of this sentence"
+      "id": "${partNum === 1 ? 's' : 'b'}1",
+      "japanese": "sentence with kanji",
+      "romaji": "full romaji reading",
+      "furigana_html": "MUST use ruby tags for EVERY kanji: <ruby>今日<rt>きょう</rt></ruby>は",
+      "english": "natural English translation"
     }
   ],
   "vocabulary": [
-    {
-      "kanji": "学校",
-      "reading": "がっこう",
-      "meaning": "school",
-      "jlpt": "n5",
-      "priority": "Learning"
-    }
+    { "kanji": "学校", "reading": "がっこう", "meaning": "school", "jlpt": "n5", "priority": "Learning" }
   ],
   "patterns_used": [
     {
       "pattern": "〜たことがある",
       "level": "${level.toUpperCase()}",
-      "sentence_id": "s1",
+      "sentence_id": "${partNum === 1 ? 's' : 'b'}1",
       "example": "富士山に登ったことがある。",
-      "explanation": "Expresses past experience — have done something before"
+      "explanation": "Expresses past experience"
     }
   ],
   "mcq": [
     {
-      "question": "Question in Japanese referencing a SPECIFIC detail",
+      "question": "Question in Japanese about a specific detail",
       "options": ["option A", "option B", "option C", "option D"],
       "correct": 0,
-      "explanation": "Brief explanation in English of why this is correct"
+      "explanation": "Why this answer is correct"
     }
   ]
 }`;
+            }
+
+            // Helper to update the loading text between calls
+            function setLoadingText(msg) {
+                const el = document.querySelector('.loading-text');
+                if (el) el.textContent = msg;
+            }
+
+            // Helper to deduplicate vocabulary by kanji
+            function mergeVocab(v1, v2) {
+                const seen = new Set();
+                return [...v1, ...v2].filter(v => {
+                    if (seen.has(v.kanji)) return false;
+                    seen.add(v.kanji);
+                    return true;
+                });
+            }
 
             try {
-                const response = await callGrokWithRetry(prompt);
-
-                const data = await response.json();
-
-                // Grok uses OpenAI-compatible response format
-                const rawText = data.choices[0].message.content;
-
-                let cleanedJSON, parsedData;
+                // ── Part 1 ──
+                setLoadingText('Generating Part 1 of 2…');
+                const res1 = await callGrokWithRetry(buildPrompt(kanjiPart1, 1));
+                const raw1 = (await res1.json()).choices[0].message.content;
+                let part1;
                 try {
-                    cleanedJSON = cleanJSON(rawText);
-                    parsedData = JSON.parse(cleanedJSON);
-                } catch (parseErr) {
-                    // Log the raw response for debugging
-                    console.error('JSON parse failed. Raw API response:', rawText);
-                    console.error('Parse error:', parseErr.message);
+                    part1 = JSON.parse(cleanJSON(raw1));
+                } catch (e) {
+                    console.error('Part 1 parse failed:', raw1);
                     throw new Error('JSON');
                 }
-                currentArticleData = parsedData;
+
+                // ── Part 2 ──
+                setLoadingText('Generating Part 2 of 2…');
+                const res2 = await callGrokWithRetry(buildPrompt(kanjiPart2, 2));
+                const raw2 = (await res2.json()).choices[0].message.content;
+                let part2;
+                try {
+                    part2 = JSON.parse(cleanJSON(raw2));
+                } catch (e) {
+                    console.error('Part 2 parse failed:', raw2);
+                    throw new Error('JSON');
+                }
+
+                // ── Merge both parts ──
+                const merged = {
+                    article:       (part1.article || '') + '\n\n' + (part2.article || ''),
+                    sentences:     [...(part1.sentences || []), ...(part2.sentences || [])],
+                    vocabulary:    mergeVocab(part1.vocabulary || [], part2.vocabulary || []),
+                    patterns_used: [...(part1.patterns_used || []), ...(part2.patterns_used || [])],
+                    mcq:           part2.mcq || []
+                };
+
+                currentArticleData = merged;
 
                 // Validate kanji
                 validateKanji(kanji);
