@@ -1521,8 +1521,11 @@
             firebase.auth().signOut();
         }
 
-        function getGeminiUrl() {
-            return `https://wild-frog-0a62.jaiminpandey5.workers.dev`;
+        // API calls go through Cloudflare Worker — key is stored securely there
+        const WORKER_URL = 'https://wild-frog-0a62.jaiminpandey5.workers.dev';
+
+        function getWorkerHeaders() {
+            return { 'Content-Type': 'application/json' };
         }
 
         // ============================================
@@ -1962,7 +1965,7 @@
         }
 
         // ============================================
-        // GENERATE ARTICLE FROM GEMINI (with retry)
+        // GENERATE ARTICLE FROM GROK (with retry)
         // ============================================
 
         // Sleep helper
@@ -2192,14 +2195,21 @@
             return warnings;
         }
 
-        async function callGeminiWithRetry(body, maxRetries = 3) {
+        async function callGrokWithRetry(prompt, maxRetries = 3) {
             const delays = [5000, 15000, 30000]; // 5s, 15s, 30s
-            const fallbackKey = 'AIzaSyDUqKsRmUgoET30lSwRL4BkiXIOqnAyuFQ';
+
+            // Body sent to the Cloudflare Worker — worker forwards to Groq
+            const body = {
+                model: 'llama-3.3-70b-versatile',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 8192
+            };
 
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                const response = await fetch(getGeminiUrl(), {
+                const response = await fetch(WORKER_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getWorkerHeaders(),
                     body: JSON.stringify(body)
                 });
 
@@ -2216,43 +2226,18 @@
                     continue;
                 }
 
-                // If we exhaust retries to Cloudflare, try the fallback API key directly
-                if (attempt === maxRetries) {
-                    await showCountdown(2, "Trying fallback API key...");
-                    const fallbackUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${fallbackKey}`;
-                    const fallbackResponse = await fetch(fallbackUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-
-                    if (fallbackResponse.ok) return fallbackResponse;
-
-                    // If fallback also fails, throw error based on fallback response
-                    let errorMsg = `Fallback API error ${fallbackResponse.status}.`;
-                    try {
-                        const errData = await fallbackResponse.json();
-                        if (errData && errData.error && errData.error.message) {
-                            errorMsg += ` Details: ${errData.error.message}`;
-                        }
-                    } catch (e) { }
-
-                    if (fallbackResponse.status === 429) errorMsg = 'Rate limit exceeded on all keys. ' + errorMsg;
-                    throw new Error(errorMsg);
-                }
-
-                // Non-retryable error on an early attempt
+                // Non-retryable or exhausted retries
                 let errorMsg = `API error ${response.status}.`;
                 try {
                     const errData = await response.json();
                     if (errData && errData.error && errData.error.message) {
                         errorMsg += ` Details: ${errData.error.message}`;
                     }
-                } catch (e) { } // Ignore json parse errors here
+                } catch (e) { }
 
                 if (response.status === 401) errorMsg = 'API key invalid. ' + errorMsg;
                 else if (response.status === 403) errorMsg = 'Access denied. ' + errorMsg;
-                else if (response.status === 404) errorMsg = 'Model not found. ' + errorMsg;
+                else if (response.status === 429) errorMsg = 'Rate limit exceeded. ' + errorMsg;
                 throw new Error(errorMsg);
             }
         }
@@ -2346,22 +2331,12 @@ JSON structure to return:
 }`;
 
             try {
-                const response = await callGeminiWithRetry({
-                    contents: [{ parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 8192,
-                        // Disable thinking mode — must be inside generationConfig
-                        thinkingConfig: { thinkingBudget: 0 }
-                    }
-                });
+                const response = await callGrokWithRetry(prompt);
 
                 const data = await response.json();
 
-                // Scan all parts and pick the first non-thought text
-                // (gemini-2.5-flash can return a thought part before the real content)
-                const parts = data.candidates[0].content.parts;
-                const rawText = (parts.find(p => !p.thought && p.text) || parts[0]).text;
+                // Grok uses OpenAI-compatible response format
+                const rawText = data.choices[0].message.content;
 
                 let cleanedJSON, parsedData;
                 try {
