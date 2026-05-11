@@ -2813,7 +2813,10 @@ Raw JSON starting with { and ending with }
 
         function updateSavedCount() {
             const count = Object.keys(localStorage).filter(k => k.startsWith('jpreader_')).length;
-            savedCount.textContent = count;
+            const savedCount = document.getElementById('savedCount');
+            if (savedCount) {
+                savedCount.textContent = count;
+            }
         }
 
         // ============================================
@@ -3569,7 +3572,9 @@ Raw JSON starting with { and ending with }
                     if (d < joinedAt) break;
                     const ds = d.toISOString().split('T')[0];
                     const dd = docsMap[ds];
-                    if (!(dd && dd.readingComplete && dd.ankiComplete)) missedDays++;
+                    const isImported = dd && dd.ankiReason === 'Verified group history import';
+                    const bothDone = dd && dd.ankiComplete && (dd.readingComplete || isImported);
+                    if (!bothDone) missedDays++;
                 }
 
                 const owed = missedDays * penaltyPerMiss;
@@ -3885,7 +3890,8 @@ Raw JSON starting with { and ending with }
                     if (d < joinedAt) break;
                     const ds = d.toISOString().split('T')[0];
                     const data = docsMap[ds];
-                    const bothDone = data && data.readingComplete && data.ankiComplete;
+                    const isImported = data && data.ankiReason === 'Verified group history import';
+                    const bothDone = data && data.ankiComplete && (data.readingComplete || isImported);
                     if (!bothDone) { missedDays++; }
                     if (i <= 30) { // streak only recent
                         if (bothDone && (i === 1 || currentStreak === i - 1)) currentStreak = i;
@@ -3895,15 +3901,19 @@ Raw JSON starting with { and ending with }
                 const owed = missedDays * penaltyPerMiss;
                 totalFund += owed;
 
-                let readingMins = 0, ankiReviews = 0, cpms = [];
+                let readingMins = 0, ankiReviews = 0, ankiSeconds = 0, cpms = [];
                 snapshot.docs.forEach(d => {
                     const dd = d.data();
                     if (dd.readingComplete) readingMins += (dd.readingMinutes || 0);
-                    if (dd.ankiComplete) ankiReviews += (dd.ankiReviews || 0);
+                    if (dd.ankiComplete) {
+                        ankiReviews += (dd.ankiReviews || 0);
+                        ankiSeconds += (dd.ankiReviews || 0) * (dd.ankiTimePerCard || 0);
+                    }
                     if (dd.cpm > 0) cpms.push(dd.cpm);
                 });
 
-                stats.push({ uid, name: member.name, picture: member.picture, missedDays, owed, currentStreak, readingMins, ankiReviews, bestCPM: cpms.length ? Math.max(...cpms) : 0 });
+                let ankiHrs = (ankiSeconds / 3600).toFixed(1);
+                stats.push({ uid, name: member.name, picture: member.picture, missedDays, owed, currentStreak, readingMins, ankiReviews, ankiHrs, bestCPM: cpms.length ? Math.max(...cpms) : 0 });
             }
 
             // --- PENALTY SUMMARY CARDS ---
@@ -3931,6 +3941,8 @@ Raw JSON starting with { and ending with }
                                 <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;">#</th>
                                 <th style="padding:10px 12px;text-align:left;font-size:12px;color:#6B7280;font-weight:600;">Member</th>
                                 <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Missed</th>
+                                <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Cards</th>
+                                <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Anki Hrs</th>
                                 <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Owed</th>
                                 <th style="padding:10px 12px;text-align:center;font-size:12px;color:#6B7280;font-weight:600;">Streak</th>
                             </tr>
@@ -3947,10 +3959,12 @@ Raw JSON starting with { and ending with }
                         <td style="padding:12px;">
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <img src="${s.picture || ''}" style="width:28px;height:28px;border-radius:50%;background:#E5E7EB;flex-shrink:0;">
-                                <span style="font-weight:600;color:#111827;font-size:14px;">${s.name}</span>
+                                <span style="font-weight:600;color:#111827;font-size:14px;">${s.name.split(' ')[0]}</span>
                             </div>
                         </td>
                         <td style="padding:12px;text-align:center;font-weight:700;color:${s.missedDays > 0 ? '#DC2626' : '#059669'};font-size:14px;">${s.missedDays}</td>
+                        <td style="padding:12px;text-align:center;font-weight:600;color:#1F2937;font-size:13px;">${s.ankiReviews}</td>
+                        <td style="padding:12px;text-align:center;font-weight:600;color:#1F2937;font-size:13px;">${s.ankiHrs}h</td>
                         <td style="padding:12px;text-align:center;">
                             <span style="padding:3px 10px;border-radius:20px;font-weight:700;font-size:13px;background:${owedBg};color:${owedColor};">&#8377;${s.owed}</span>
                         </td>
@@ -4162,7 +4176,9 @@ Raw JSON starting with { and ending with }
                 let bg = '#E5E7EB';
                 if (!isFuture) {
                     const data = docsMap[dateStr];
-                    if (data && data.readingComplete && data.ankiComplete) bg = '#059669';
+                    const isImported = data && data.ankiReason === 'Verified group history import';
+                    const bothDone = data && data.ankiComplete && (data.readingComplete || isImported);
+                    if (bothDone) bg = '#059669';
                     else if (data && (data.readingComplete || data.ankiComplete)) bg = '#F59E0B';
                     else bg = '#EF4444';
                 }
