@@ -4237,12 +4237,24 @@ Raw JSON starting with { and ending with }
             const day = d.getDate().toString().padStart(2, '0');
             const month = (d.getMonth() + 1).toString().padStart(2, '0');
             const year = d.getFullYear().toString().slice(-2);
+            
+            let userSalt = 0;
+            if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) {
+                for (let i = 0; i < currentUser.uid.length; i++) {
+                    userSalt += currentUser.uid.charCodeAt(i);
+                }
+            }
+
             const raw = day + month + year;
+            // Safe characters: excludes 1, I, L, 0, O, S, 5, B, 8, G, 6, C, Z, 2
+            const safeChars = 'AD3E4F7H9JKMNPQRTVWXY';
             let code = '';
             for (let i = 0; i < raw.length; i++) {
-                code += i % 2 === 0 ? String.fromCharCode(65 + parseInt(raw[i])) : raw[i];
+                const num = parseInt(raw[i]) || 0;
+                const charIdx = (num * 7 + userSalt * 3 + i * 11) % safeChars.length;
+                code += safeChars[charIdx];
             }
-            return code.toUpperCase();
+            return code.substring(0, 6);
         }
 
         async function loadSubmitTab() {
