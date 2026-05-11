@@ -4468,14 +4468,15 @@ Raw JSON starting with { and ending with }
                         <h3 style="margin-top:0; color:#D97706;">⚠️ Code Not Detected</h3>
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ❌ Not found</div>
-                        <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">Today's code should appear in your screenshot. Retake with the code visible, or explain below:</p>
+                        <p style="font-size:13px; color:#D97706; margin-bottom:8px;"><b>💡 Tip:</b> Tesseract OCR often ignores floating white text boxes. Try typing the code directly into Anki's search bar!</p>
+                        <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">If your code is in the screenshot but wasn't detected, type today's code below to bypass:</p>
                         <div style="background:#F3F4F6; padding:8px; font-family:monospace; font-size:10px; max-height:80px; overflow-y:auto; margin-bottom:16px; color:#4B5563;">
-                            <b>OCR saw:</b> ${results.rawText.replace(/\n/g, ' ').substring(0, 300)}...
+                            <b>OCR saw:</b> ${results.rawText.replace(/\n/g, ' ')}
                         </div>
-                        <input type="text" id="suspicious-reason" placeholder="Optional explanation..." style="margin-bottom:16px;">
+                        <input type="text" id="suspicious-reason" placeholder="Type today's code or an explanation..." style="margin-bottom:16px;">
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                             <button class="btn-secondary" onclick="showUploadForm()">Retake Screenshot</button>
-                            <button class="btn-primary" onclick="submitAnkiSession(${results.reviewsToday}, false, document.getElementById('suspicious-reason').value)" style="background:#6B7280;">Submit Anyway</button>
+                            <button class="btn-primary" onclick="submitWithManualCode(${results.reviewsToday})" style="background:#6B7280;">Submit Anyway</button>
                         </div>
                         <div id="submit-loading-status" style="text-align:center; margin-top:12px; color:#4F46E5; font-weight:600;"></div>
                     </div>
@@ -4492,6 +4493,17 @@ Raw JSON starting with { and ending with }
                     </div>
                     `;
             }
+        }
+
+        function submitWithManualCode(reviewsToday) {
+            const reason = document.getElementById('suspicious-reason').value || '';
+            const cleanReason = reason.toUpperCase().replace(/\s/g, '');
+            const dailyCode = getDailyCode().replace(/\s/g, '');
+            
+            // Check if the user typed today's code manually
+            const isManualCode = cleanReason === dailyCode || cleanReason.includes(dailyCode);
+            
+            submitAnkiSession(reviewsToday, isManualCode, reason);
         }
 
         async function submitAnkiSession(reviewsToday, codeFound, reason) {
