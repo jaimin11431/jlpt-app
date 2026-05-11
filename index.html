@@ -4469,6 +4469,9 @@ Raw JSON starting with { and ending with }
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ❌ Not found</div>
                         <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">Today's code should appear in your screenshot. Retake with the code visible, or explain below:</p>
+                        <div style="background:#F3F4F6; padding:8px; font-family:monospace; font-size:10px; max-height:80px; overflow-y:auto; margin-bottom:16px; color:#4B5563;">
+                            <b>OCR saw:</b> ${results.rawText.replace(/\n/g, ' ').substring(0, 300)}...
+                        </div>
                         <input type="text" id="suspicious-reason" placeholder="Optional explanation..." style="margin-bottom:16px;">
                         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
                             <button class="btn-secondary" onclick="showUploadForm()">Retake Screenshot</button>
