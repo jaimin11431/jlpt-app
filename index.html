@@ -4322,7 +4322,7 @@ Raw JSON starting with { and ending with }
         async function checkScreenshotDuplicate(imageFile, userId) {
             const hash = await hashScreenshot(imageFile);
 
-            const stored = localStorage.getItem(`ankiHashes_${userId}`);
+            const stored = localStorage.getItem(`ankiVerifiedHashes_${userId}`);
             const usedHashes = stored ? JSON.parse(stored) : [];
 
             if (usedHashes.includes(hash)) {
@@ -4333,10 +4333,17 @@ Raw JSON starting with { and ending with }
                 };
             }
 
-            usedHashes.push(hash);
-            localStorage.setItem(`ankiHashes_${userId}`, JSON.stringify(usedHashes));
-
             return { isDuplicate: false, hash };
+        }
+
+        function saveScreenshotHash(hash, userId) {
+            if (!hash) return;
+            const stored = localStorage.getItem(`ankiVerifiedHashes_${userId}`);
+            const usedHashes = stored ? JSON.parse(stored) : [];
+            if (!usedHashes.includes(hash)) {
+                usedHashes.push(hash);
+                localStorage.setItem(`ankiVerifiedHashes_${userId}`, JSON.stringify(usedHashes));
+            }
         }
 
         async function startOcrAnalysis() {
@@ -4356,6 +4363,7 @@ Raw JSON starting with { and ending with }
                     statusDiv.innerHTML = `<span style="color:#EF4444;">${dupCheck.message}</span>`;
                     document.getElementById('anki-file-input').value = '';
                     currentOcrFile = null;
+                    btn.disabled = false;
                     return;
                 }
 
@@ -4516,6 +4524,9 @@ Raw JSON starting with { and ending with }
                 };
 
                 await db.collection('sessions').doc(uid).collection('daily').doc(today).set(ankiData, { merge: true });
+
+                const hash = await hashScreenshot(currentOcrFile);
+                saveScreenshotHash(hash, uid);
 
                 if (!codeFound) await checkSuspiciousCount(uid);
 
