@@ -4451,7 +4451,7 @@ Raw JSON starting with { and ending with }
             if (results.reviewsToday !== null && results.codeFound) {
                 const pass = results.reviewsToday >= 50;
                 area.innerHTML = `
-                    < div class="submit-card" >
+                    <div class="submit-card">
                         <h3 style="margin-top:0;">✅ Verification Successful</h3>
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:8px;"><b>Study time:</b> ${results.timeStudied ? results.timeStudied + ' min' : 'Unknown'}</div>
@@ -4464,7 +4464,7 @@ Raw JSON starting with { and ending with }
                     `;
             } else if (results.reviewsToday !== null && !results.codeFound) {
                 area.innerHTML = `
-                    < div class="submit-card" style = "border-color:#F59E0B;" >
+                    <div class="submit-card" style="border-color:#F59E0B;">
                         <h3 style="margin-top:0; color:#D97706;">⚠️ Code Not Detected</h3>
                         <div style="margin-bottom:8px;"><b>Reviews detected:</b> ${results.reviewsToday}</div>
                         <div style="margin-bottom:16px;"><b>Anti-cheat code:</b> ❌ Not found</div>
@@ -4479,7 +4479,7 @@ Raw JSON starting with { and ending with }
                 `;
             } else {
                 area.innerHTML = `
-                    < div class="submit-card" style = "border-color:#EF4444;" >
+                    <div class="submit-card" style="border-color:#EF4444;">
                         <h3 style="margin-top:0; color:#DC2626;">❌ Could Not Read Stats</h3>
                         <p style="font-size:14px; color:#4B5563; margin-bottom:16px;">OCR could not detect review count. Please ensure image is clear and "Today" tab is selected.</p>
                         <div style="background:#F3F4F6; padding:8px; font-family:monospace; font-size:10px; max-height:100px; overflow-y:auto; margin-bottom:16px;">
