@@ -1509,18 +1509,35 @@
             document.getElementById('user-name').textContent = user.displayName ? user.displayName.split(' ')[0] : 'User';
             document.getElementById('user-avatar').src = user.photoURL || '';
 
+            // Sync group code between localStorage and Firebase (non-critical)
             try {
                 const userDoc = await db.collection('users').doc(user.uid).get();
                 if (userDoc.exists && userDoc.data().groupCode) {
+                    // Firebase has group code, use it
                     localStorage.setItem('jpgroupcode', userDoc.data().groupCode);
+                    console.log('✅ Group code loaded from Firebase:', userDoc.data().groupCode);
                 } else {
+                    // Check if user has local group code
                     const localCode = localStorage.getItem('jpgroupcode');
                     if (localCode) {
-                        await db.collection('users').doc(user.uid).set({ groupCode: localCode }, { merge: true });
+                        try {
+                            // Try to sync local code to Firebase
+                            await db.collection('users').doc(user.uid).set({ groupCode: localCode }, { merge: true });
+                            console.log('✅ Local group code synced to Firebase:', localCode);
+                        } catch (writeErr) {
+                            // If write fails, just use localStorage (fallback)
+                            console.warn('⚠️ Could not sync group code to Firebase (using localStorage fallback):', writeErr.message);
+                            // App still works with localStorage only
+                        }
                     }
                 }
             } catch (e) {
-                console.error("Error syncing group code:", e);
+                // If we can't read from Firebase, that's OK - just use localStorage
+                console.warn('⚠️ Could not sync group code from Firebase (using localStorage):', e.message);
+                const localCode = localStorage.getItem('jpgroupcode');
+                if (localCode) {
+                    console.log('ℹ️ Using local group code from storage:', localCode);
+                }
             }
 
             loadSettings();
@@ -3755,52 +3772,64 @@ Raw JSON starting with { and ending with }
             const name = document.getElementById('create-group-name').value.trim();
             if (!name) return alert("Enter a group name");
 
-            const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-            const groupRef = db.collection('groups').doc(code);
+            try {
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const groupRef = db.collection('groups').doc(code);
 
-            const doc = await groupRef.get();
-            if (doc.exists) return createGroup(); // unlikely collision, retry
+                const doc = await groupRef.get();
+                if (doc.exists) return createGroup(); // unlikely collision, retry
 
-            await groupRef.set({
-                name: name,
-                createdBy: currentUser.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                members: {
-                    [currentUser.uid]: {
-                        name: currentUser.displayName,
-                        picture: currentUser.photoURL,
-                        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                await groupRef.set({
+                    name: name,
+                    createdBy: currentUser.uid,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    members: {
+                        [currentUser.uid]: {
+                            name: currentUser.displayName,
+                            picture: currentUser.photoURL,
+                            joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }
                     }
-                }
-            });
+                });
 
-            await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
-            localStorage.setItem('jpgroupcode', code);
-            alert(`Group created! Your code is: ${code}`);
-            loadGroupTab();
+                await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
+                localStorage.setItem('jpgroupcode', code);
+                alert(`✅ Group created! Your code is: ${code}`);
+                console.log('✅ Group created:', code);
+                loadGroupTab();
+            } catch (err) {
+                console.error('❌ Error creating group:', err);
+                alert(`Error creating group: ${err.message}\n\nPlease check your internet connection and try again.`);
+            }
         }
 
         async function joinGroup() {
             const code = document.getElementById('join-group-code').value.trim().toUpperCase();
             if (!code || code.length !== 6) return alert("Enter a valid 6-character code");
 
-            const groupRef = db.collection('groups').doc(code);
-            const doc = await groupRef.get();
+            try {
+                const groupRef = db.collection('groups').doc(code);
+                const doc = await groupRef.get();
 
-            if (!doc.exists) return alert("Group not found. Check the code.");
+                if (!doc.exists) return alert("Group not found. Check the code.");
 
-            await groupRef.update({
-                [`members.${currentUser.uid}`]: {
-                    name: currentUser.displayName,
-                    picture: currentUser.photoURL,
-                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }
-            });
+                await groupRef.update({
+                    [`members.${currentUser.uid}`]: {
+                        name: currentUser.displayName,
+                        picture: currentUser.photoURL,
+                        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }
+                });
 
-            await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
-            localStorage.setItem('jpgroupcode', code);
-            alert(`Joined group: ${doc.data().name}! 🎉`);
-            loadGroupTab();
+                await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
+                localStorage.setItem('jpgroupcode', code);
+                alert(`✅ Joined group: ${doc.data().name}! 🎉`);
+                console.log('✅ Joined group:', code);
+                loadGroupTab();
+            } catch (err) {
+                console.error('❌ Error joining group:', err);
+                alert(`Error joining group: ${err.message}\n\nMake sure the group code is correct and try again.`);
+            }
         }
 
         // Track currently active group subtab
@@ -4324,28 +4353,42 @@ Raw JSON starting with { and ending with }
 
         async function leaveGroup() {
             if (!confirm("Leave this group?")) return;
-            const code = localStorage.getItem('jpgroupcode');
-            if (code) {
-                await db.collection('groups').doc(code).update({
-                    [`members.${currentUser.uid}`]: firebase.firestore.FieldValue.delete()
-                });
-                await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
-                localStorage.removeItem('jpgroupcode');
+            try {
+                const code = localStorage.getItem('jpgroupcode');
+                if (code) {
+                    await db.collection('groups').doc(code).update({
+                        [`members.${currentUser.uid}`]: firebase.firestore.FieldValue.delete()
+                    });
+                    await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.warn('⚠️ Could not update user groupCode:', e.message));
+                    localStorage.removeItem('jpgroupcode');
+                    console.log('✅ Left group:', code);
+                }
+                cleanupGroupListeners();
+                showGroupState1();
+                alert('✅ You have left the group.');
+            } catch (err) {
+                console.error('❌ Error leaving group:', err);
+                alert(`Error leaving group: ${err.message}`);
             }
-            cleanupGroupListeners();
-            showGroupState1();
         }
 
         async function deleteGroup() {
             if (!confirm("Delete group for everyone? This cannot be undone.")) return;
-            const code = localStorage.getItem('jpgroupcode');
-            if (code) {
-                await db.collection('groups').doc(code).delete();
-                await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
-                localStorage.removeItem('jpgroupcode');
+            try {
+                const code = localStorage.getItem('jpgroupcode');
+                if (code) {
+                    await db.collection('groups').doc(code).delete();
+                    await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.warn('⚠️ Could not update user groupCode:', e.message));
+                    localStorage.removeItem('jpgroupcode');
+                    console.log('✅ Group deleted:', code);
+                }
+                cleanupGroupListeners();
+                showGroupState1();
+                alert('✅ Group has been deleted.');
+            } catch (err) {
+                console.error('❌ Error deleting group:', err);
+                alert(`Error deleting group: ${err.message}\n\nOnly the group creator can delete the group.`);
             }
-            cleanupGroupListeners();
-            showGroupState1();
         }
 
         // ============================================
@@ -4702,22 +4745,28 @@ Raw JSON starting with { and ending with }
         }
 
         async function checkSuspiciousCount(uid) {
-            const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+            try {
+                const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
-            const snapshot = await db.collection('sessions').doc(uid).collection('daily').where('ankiSuspicious', '==', true).get();
-            const recentSuspicious = snapshot.docs.filter(doc => doc.id >= sevenDaysAgo);
+                const snapshot = await db.collection('sessions').doc(uid).collection('daily').where('ankiSuspicious', '==', true).get();
+                const recentSuspicious = snapshot.docs.filter(doc => doc.id >= sevenDaysAgo);
 
-            if (recentSuspicious.length >= 2) {
-                const groupCode = localStorage.getItem('jpgroupcode');
-                if (groupCode) {
-                    await db.collection('groups').doc(groupCode).update({
-                        [`flags.${uid}`]: {
-                            reason: 'Multiple submissions without anti-cheat code',
-                            count: recentSuspicious.length,
-                            flaggedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        }
-                    });
+                if (recentSuspicious.length >= 2) {
+                    const groupCode = localStorage.getItem('jpgroupcode');
+                    if (groupCode) {
+                        await db.collection('groups').doc(groupCode).update({
+                            [`flags.${uid}`]: {
+                                reason: 'Multiple submissions without anti-cheat code',
+                                count: recentSuspicious.length,
+                                flaggedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            }
+                        });
+                        console.warn('⚠️ User flagged as suspicious:', uid);
+                    }
                 }
+            } catch (err) {
+                console.warn('⚠️ Could not update suspicious count (permission or other error):', err.message);
+                // Non-critical operation - continue anyway
             }
         }
 
