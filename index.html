@@ -3032,6 +3032,8 @@ Raw JSON starting with { and ending with }
 
             const resultDiv = document.getElementById('speed-result');
             resultDiv.style.display = 'block';
+            
+            console.log('⏹️ Stop & Calculate pressed. CPM Result:', cpmResult);
 
             if (!cpmResult.valid) {
                 resultDiv.innerHTML = `
@@ -3041,6 +3043,9 @@ Raw JSON starting with { and ending with }
                         </div>
                     </div>
                 `;
+                // Clear any previous MCQ state before showing new one
+                mcqAnswers = {};
+                pendingSessionData = null;
                 if (currentArticleData && currentArticleData.mcq) {
                     showMCQ(currentArticleData.mcq, null);
                 }
@@ -3127,6 +3132,10 @@ Raw JSON starting with { and ending with }
                 report: verifierReport
             };
 
+            // Clear previous MCQ state before showing new one
+            mcqAnswers = {};
+            pendingSessionData = null;
+            
             // Call MCQ
             if (currentArticleData && currentArticleData.mcq) {
                 showMCQ(currentArticleData.mcq, sessionDataToSave);
@@ -3136,6 +3145,7 @@ Raw JSON starting with { and ending with }
         let pendingSessionData = null;
 
         function showMCQ(mcqArray, sessionData) {
+            // Clear all previous MCQ state
             mcqData = mcqArray;
             pendingSessionData = sessionData;
             mcqShownAt = Date.now();
@@ -3143,10 +3153,27 @@ Raw JSON starting with { and ending with }
 
             const container = document.getElementById('mcq-questions');
             container.innerHTML = '';
-            document.getElementById('mcq-timer-warning').style.display = 'none';
-            document.getElementById('mcq-result').style.display = 'none';
-            document.getElementById('mcq-submit-btn').style.display = 'block';
+            
+            // Explicitly clear all option styling from previous attempts
+            mcqArray.forEach((q, qi) => {
+                q.options.forEach((_, oi) => {
+                    const el = document.getElementById(`opt-${qi}-${oi}`);
+                    if (el) {
+                        el.style.borderColor = '#E5E7EB';
+                        el.style.background = '#fff';
+                    }
+                });
+            });
 
+            // Reset UI elements
+            document.getElementById('mcq-timer-warning').style.display = 'none';
+            document.getElementById('mcq-timer-warning').textContent = '';
+            document.getElementById('mcq-result').style.display = 'none';
+            document.getElementById('mcq-result').innerHTML = '';
+            document.getElementById('mcq-submit-btn').style.display = 'block';
+            document.getElementById('mcq-submit-btn').disabled = false;
+
+            // Render fresh MCQ questions
             mcqArray.forEach((q, qi) => {
                 const qDiv = document.createElement('div');
                 qDiv.style.cssText = 'margin-bottom:20px;';
@@ -3158,7 +3185,7 @@ Raw JSON starting with { and ending with }
                         ${q.options.map((opt, oi) => `
                         <div onclick="selectOption(${qi}, ${oi})" 
                             id="opt-${qi}-${oi}"
-                            style="padding:10px 14px; margin-bottom:6px; border:2px solid #E5E7EB; border-radius:8px; cursor:pointer; font-size:15px; transition:all 0.15s ease;">
+                            style="padding:10px 14px; margin-bottom:6px; border:2px solid #E5E7EB; border-radius:8px; cursor:pointer; font-size:15px; transition:all 0.15s ease; background:#fff;">
                             ${opt}
                         </div>
                         `).join('')}
@@ -3170,6 +3197,8 @@ Raw JSON starting with { and ending with }
             const mcqContainer = document.getElementById('mcq-container');
             mcqContainer.style.display = 'block';
             mcqContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            console.log('✅ MCQ reinitialized with', mcqArray.length, 'questions. All previous state cleared.');
         }
 
         window.selectOption = function (questionIndex, optionIndex) {
@@ -3195,6 +3224,8 @@ Raw JSON starting with { and ending with }
             if (totalAnswerTimeSeconds < 12) {
                 document.getElementById('mcq-timer-warning').textContent = '⚠️ Answered too quickly. Please read each question carefully.';
                 document.getElementById('mcq-timer-warning').style.display = 'block';
+                
+                // Reset styling for retry
                 mcqAnswers = {};
                 mcqData.forEach((q, qi) => {
                     q.options.forEach((_, oi) => {
@@ -3215,6 +3246,7 @@ Raw JSON starting with { and ending with }
 
             const passed = correct >= 2;
 
+            // Show correct/incorrect answers
             mcqData.forEach((q, qi) => {
                 const userAnswer = mcqAnswers[qi];
                 q.options.forEach((_, oi) => {
@@ -3247,6 +3279,7 @@ Raw JSON starting with { and ending with }
                     `;
                     document.getElementById('mcq-submit-btn').style.display = 'none';
                     saveFinalSession(pendingSessionData, correct);
+                    console.log('✅ MCQ passed! Session saving initiated.');
                 } else {
                     resultDiv.innerHTML = `
                         <div style="background:#FFFBEB; border:1px solid #FCD34D; border-radius:8px; padding:16px;">
@@ -3267,10 +3300,24 @@ Raw JSON starting with { and ending with }
                         ❌ ${correct}/3 correct — Need 2/3 minimum
                         </div>
                         <div style="font-size:13px; color:#B91C1C; margin-top:4px;">
-                        Session not saved. Read the article again and retry.
+                        Session not saved. Click the button below to try again with a fresh MCQ.
                         </div>
+                        <button onclick="retryMCQ()" style="margin-top:12px; padding:8px 16px; background:#DC2626; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:13px; font-weight:600;">
+                        🔄 Retry MCQ
+                        </button>
                     </div>
                 `;
+                console.log('❌ MCQ failed. Session NOT saved. User can retry.');
+            }
+        };
+
+        window.retryMCQ = function() {
+            console.log('🔄 Retrying MCQ...');
+            if (currentArticleData && currentArticleData.mcq) {
+                // Clear all state and show fresh MCQ
+                mcqAnswers = {};
+                pendingSessionData = null;
+                showMCQ(currentArticleData.mcq, null);
             }
         };
 
@@ -3297,11 +3344,16 @@ Raw JSON starting with { and ending with }
                 scrollDepth: data.report ? data.report.scrollDepthReached : 0,
                 mcqScore: mcqScore
             };
+            
+            // Save to localStorage immediately
             localStorage.setItem('jpsession_' + session.timestamp, JSON.stringify(session));
+            console.log('✅ Session saved to localStorage:', session);
 
+            // Save to Firebase if user is logged in
             if (currentUser) {
                 const todayStr = getStudyDate().toISOString().split('T')[0];
                 const dailyRef = db.collection('sessions').doc(currentUser.uid).collection('daily').doc(todayStr);
+                
                 dailyRef.get().then(docSnapshot => {
                     let bestCpm = data.cpm;
                     let existingMins = 0;
@@ -3312,6 +3364,7 @@ Raw JSON starting with { and ending with }
                     let existingEasy = 0;
                     let existingSecs = 0;
                     const alreadyComplete = docSnapshot.exists && docSnapshot.data().readingComplete;
+                    
                     if (docSnapshot.exists) {
                         const d = docSnapshot.data();
                         bestCpm = Math.max(data.cpm, d.cpm || 0);
@@ -3322,10 +3375,12 @@ Raw JSON starting with { and ending with }
                         existingNormal = d.timeNormal || 0;
                         existingEasy = d.timeEasy || 0;
                     }
+                    
                     const newTotalSecs = existingSecs + Math.floor(data.totalSeconds);
                     const newTotalMins = Math.floor(newTotalSecs / 60);
                     const isReadingComplete = alreadyComplete || newTotalSecs >= 1800;
-                    dailyRef.set({
+                    
+                    const updateData = {
                         readingComplete: isReadingComplete,
                         readingSeconds: newTotalSecs,
                         readingMinutes: newTotalMins,
@@ -3336,14 +3391,19 @@ Raw JSON starting with { and ending with }
                         timeNormal: existingNormal + Math.round(modeTimings.normal || 0),
                         timeEasy: existingEasy + Math.round(modeTimings.easy || 0),
                         dominantMode: data.dominantMode
-                    }, { merge: true }).then(() => loadTodayTab());
-                    if (!isReadingComplete && newTotalSecs < 1800) {
-                        const remSecs = 1800 - newTotalSecs;
-                        const remM = Math.floor(remSecs / 60);
-                        const remS = remSecs % 60;
-                        showWarning(`📖 ${newTotalMins}m ${newTotalSecs % 60}s recorded (${remM}m ${remS}s more needed to complete reading task)`);
-                    }
-                }).catch(err => console.error("Error saving to Firebase:", err));
+                    };
+                    
+                    return dailyRef.set(updateData, { merge: true });
+                }).then(() => {
+                    console.log('✅ Session saved to Firebase. Refreshing Today tab...');
+                    loadTodayTab();
+                    showSuccess('✅ Reading session saved successfully!');
+                }).catch(err => {
+                    console.error("❌ Error saving to Firebase:", err);
+                    showWarning(`⚠️ Session saved locally but failed to sync to Firebase. Error: ${err.message}`);
+                });
+            } else {
+                console.log('ℹ️ Not logged in. Session saved to localStorage only.');
             }
 
             // Reset verifier so it doesn't double track
@@ -3353,6 +3413,7 @@ Raw JSON starting with { and ending with }
             }
             mcqData = null;
             mcqAnswers = {};
+            pendingSessionData = null;
         }
 
         function resetTimer() {
@@ -3364,12 +3425,44 @@ Raw JSON starting with { and ending with }
             document.getElementById('timer-display').textContent = '00:00.0';
             document.getElementById('lap-list').innerHTML = '';
             document.getElementById('speed-result').style.display = 'none';
+            document.getElementById('speed-result').innerHTML = '';
+            
+            // Clear MCQ state
+            const mcqContainer = document.getElementById('mcq-container');
+            if (mcqContainer) mcqContainer.style.display = 'none';
+            const mcqQuestions = document.getElementById('mcq-questions');
+            if (mcqQuestions) mcqQuestions.innerHTML = '';
+            const mcqResult = document.getElementById('mcq-result');
+            if (mcqResult) {
+                mcqResult.style.display = 'none';
+                mcqResult.innerHTML = '';
+            }
+            const mcqWarning = document.getElementById('mcq-timer-warning');
+            if (mcqWarning) {
+                mcqWarning.style.display = 'none';
+                mcqWarning.textContent = '';
+            }
+            const mcqSubmitBtn = document.getElementById('mcq-submit-btn');
+            if (mcqSubmitBtn) {
+                mcqSubmitBtn.style.display = 'block';
+                mcqSubmitBtn.disabled = false;
+            }
+            
+            // Reset MCQ state variables
+            mcqData = null;
+            mcqAnswers = {};
+            mcqShownAt = null;
+            pendingSessionData = null;
+            
+            // Reset buttons
             document.getElementById('btn-start').disabled = false;
             document.getElementById('btn-start').style.opacity = '1';
             document.getElementById('btn-lap').disabled = true;
             document.getElementById('btn-lap').style.background = '#E5E7EB';
             document.getElementById('btn-lap').style.color = '#6B7280';
             document.getElementById('btn-stop').disabled = true;
+            
+            console.log('✅ Timer and MCQ state completely reset.');
         }
 
         // ============================================
