@@ -1503,11 +1503,25 @@
             document.getElementById('stopwatch-panel').style.display = 'none';
         }
 
-        function showMainApp(user) {
+        async function showMainApp(user) {
             document.getElementById('login-page').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
             document.getElementById('user-name').textContent = user.displayName ? user.displayName.split(' ')[0] : 'User';
             document.getElementById('user-avatar').src = user.photoURL || '';
+
+            try {
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists && userDoc.data().groupCode) {
+                    localStorage.setItem('jpgroupcode', userDoc.data().groupCode);
+                } else {
+                    const localCode = localStorage.getItem('jpgroupcode');
+                    if (localCode) {
+                        await db.collection('users').doc(user.uid).set({ groupCode: localCode }, { merge: true });
+                    }
+                }
+            } catch (e) {
+                console.error("Error syncing group code:", e);
+            }
 
             loadSettings();
             loadTodayTab(); // Pre-load today's task status
@@ -3622,6 +3636,7 @@ Raw JSON starting with { and ending with }
                     switchGroupSubTab('today');
                 } else {
                     localStorage.removeItem('jpgroupcode');
+                    await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
                     showGroupState1("Your group no longer exists.");
                 }
             } else {
@@ -3658,6 +3673,7 @@ Raw JSON starting with { and ending with }
                 }
             });
 
+            await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
             localStorage.setItem('jpgroupcode', code);
             alert(`Group created! Your code is: ${code}`);
             loadGroupTab();
@@ -3680,6 +3696,7 @@ Raw JSON starting with { and ending with }
                 }
             });
 
+            await db.collection('users').doc(currentUser.uid).set({ groupCode: code }, { merge: true });
             localStorage.setItem('jpgroupcode', code);
             alert(`Joined group: ${doc.data().name}! 🎉`);
             loadGroupTab();
@@ -3756,8 +3773,9 @@ Raw JSON starting with { and ending with }
             const code = localStorage.getItem('jpgroupcode');
             if (!code) return;
             await db.collection('groups').doc(code).update({
-                [`members.${uid} `]: firebase.firestore.FieldValue.delete()
+                [`members.${uid}`]: firebase.firestore.FieldValue.delete()
             });
+            await db.collection('users').doc(uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
             loadGroupSettings();
             loadGroupToday();
         }
@@ -4195,8 +4213,9 @@ Raw JSON starting with { and ending with }
             const code = localStorage.getItem('jpgroupcode');
             if (code) {
                 await db.collection('groups').doc(code).update({
-                    [`members.${currentUser.uid} `]: firebase.firestore.FieldValue.delete()
+                    [`members.${currentUser.uid}`]: firebase.firestore.FieldValue.delete()
                 });
+                await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
                 localStorage.removeItem('jpgroupcode');
             }
             cleanupGroupListeners();
@@ -4208,6 +4227,7 @@ Raw JSON starting with { and ending with }
             const code = localStorage.getItem('jpgroupcode');
             if (code) {
                 await db.collection('groups').doc(code).delete();
+                await db.collection('users').doc(currentUser.uid).update({ groupCode: firebase.firestore.FieldValue.delete() }).catch(e => console.error(e));
                 localStorage.removeItem('jpgroupcode');
             }
             cleanupGroupListeners();
