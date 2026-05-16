@@ -3395,8 +3395,16 @@ Raw JSON starting with { and ending with }
                     
                     return dailyRef.set(updateData, { merge: true });
                 }).then(() => {
-                    console.log('✅ Session saved to Firebase. Refreshing Today tab...');
+                    console.log('✅ Session saved to Firebase. Refreshing all tabs...');
                     loadTodayTab();
+                    renderStatistics();
+                    
+                    // Refresh group tab if it's currently active
+                    const groupTab = document.getElementById('group-tab');
+                    if (groupTab && groupTab.style.display !== 'none') {
+                        refreshActiveGroupSubTab();
+                    }
+                    
                     showSuccess('✅ Reading session saved successfully!');
                 }).catch(err => {
                     console.error("❌ Error saving to Firebase:", err);
@@ -3795,6 +3803,9 @@ Raw JSON starting with { and ending with }
             loadGroupTab();
         }
 
+        // Track currently active group subtab
+        let activeGroupSubTab = 'today';
+
         function switchGroupSubTab(tabName) {
             ['today', 'leaderboard', 'individual', 'stats', 'settings'].forEach(t => {
                 const el = document.getElementById(`group-sub-${t}`);
@@ -3808,11 +3819,21 @@ Raw JSON starting with { and ending with }
             const btn = Array.from(document.querySelectorAll('.group-pill')).find(el => el.textContent.toLowerCase().includes(tabName === 'individual' ? 'individual' : tabName));
             if (btn) btn.classList.add('active');
 
+            activeGroupSubTab = tabName; // Track active tab
+
             if (tabName === 'today') loadGroupToday();
             if (tabName === 'leaderboard') loadGroupLeaderboard();
             if (tabName === 'individual') loadGroupIndividualStats();
             if (tabName === 'stats') loadGroupStats();
             if (tabName === 'settings') loadGroupSettings();
+        }
+
+        function refreshActiveGroupSubTab() {
+            // Refresh the currently active group subtab
+            if (activeGroupSubTab === 'today') loadGroupToday().catch(err => console.log('Group today refresh:', err));
+            if (activeGroupSubTab === 'leaderboard') loadGroupLeaderboard().catch(err => console.log('Group leaderboard refresh:', err));
+            if (activeGroupSubTab === 'individual') loadGroupIndividualStats().catch(err => console.log('Group individual refresh:', err));
+            if (activeGroupSubTab === 'stats') loadGroupStats().catch(err => console.log('Group stats refresh:', err));
         }
 
         function cleanupGroupListeners() {
